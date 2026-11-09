@@ -225,12 +225,15 @@ function FollowPopup({
     active = useRef(true);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const dialog = ref.current;
     active.current = true;
     dialog?.showModal();
     return () => {
       active.current = false;
       dialog?.close();
+      document.body.style.overflow = previousOverflow;
       previous?.focus();
     };
   }, []);

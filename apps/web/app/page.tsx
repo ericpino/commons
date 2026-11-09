@@ -7,19 +7,17 @@ import OrganizationDirectory, {
   OrganizationState,
 } from "../components/organization-directory";
 import { reconcileFollow } from "../components/organization-follow";
+import AppShell, {
+  ShellSearch,
+  ShellNavigation,
+} from "../components/app-shell";
 import SkillPicker from "../components/skill-picker";
 import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
 import {
-  Home,
   Users,
-  Network,
   Flag,
-  Layers,
-  Wallet,
-  ChartNoAxesCombined,
   ShieldCheck,
-  Search,
   ArrowUpRight,
   Plus,
   Check,
@@ -88,16 +86,6 @@ type Audit = {
   created_at: string;
   detail: unknown;
 };
-const navigation = [
-  { name: "Home", icon: Home },
-  { name: "People", icon: Users },
-  { name: "Organization", icon: Network },
-  { name: "Goals", icon: Flag },
-  { name: "Allocation", icon: Layers },
-  { name: "Budget", icon: Wallet },
-  { name: "Insights", icon: ChartNoAxesCombined },
-  { name: "Compliance", icon: ShieldCheck },
-];
 const intro: Record<string, [string, string]> = {
   Home: [
     "Good work deserves to be seen.",
@@ -215,11 +203,13 @@ export default function Page() {
     if (!modal) return;
     setError("");
     const previous = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     const items = () =>
       Array.from(
         dialog?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input, select, textarea, [tabindex="0"]',
+          'button:not(:disabled), a[href], summary, input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
         ) || [],
       );
     const firstInput = dialog?.querySelector<HTMLElement>(
@@ -246,6 +236,7 @@ export default function Page() {
     document.addEventListener("keydown", key);
     return () => {
       document.removeEventListener("keydown", key);
+      document.body.style.overflow = previousOverflow;
       previous?.focus();
     };
   }, [modal]);
@@ -725,103 +716,108 @@ export default function Page() {
     </div>
   );
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-mark">c</span>commons
-        </div>
-        <div className="workspace-brand">
-          <span className="northstar">✳</span>
-          <div>
-            Northstar<small>Our shared workspace</small>
-          </div>
-          <span className="workspace-dot" />
-        </div>
-        <span className="nav-label">WORKSPACE</span>
-        <nav>
-          {navigation.map(({ name, icon: Icon }) => (
+    <AppShell
+      announcement={
+        notice && (
+          <div className="notice" role="status">
+            <Check size={16} />
+            {notice}
             <button
-              key={name}
-              className={screen === name ? "active" : ""}
-              onClick={() => {
-                setScreen(name);
-                setQuery("");
-                setError("");
-                setShowArchived(false);
+              aria-label="Dismiss notification"
+              onClick={() => setNotice("")}
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )
+      }
+      screen={screen}
+      sidebar={
+        <>
+          <div className="brand">
+            <span className="brand-mark">c</span>
+            <span className="brand-name">commons</span>
+          </div>
+          <div className="workspace-brand">
+            <span className="northstar">✳</span>
+            <div>
+              Northstar<small>Our shared workspace</small>
+            </div>
+            <span className="workspace-dot" />
+          </div>
+          <span className="nav-label">WORKSPACE</span>
+          <ShellNavigation
+            screen={screen}
+            onNavigate={(name) => {
+              setScreen(name);
+              setQuery("");
+              setError("");
+              setShowArchived(false);
+            }}
+          />
+          <div className="sidebar-bottom">
+            <div className="pilot-note">
+              <span>Built on trust.</span>
+              <p>
+                Contributions, not scores.
+                <br />
+                {screen === "Allocation"
+                  ? "Invitations. Always opt-in."
+                  : "Invitations, not assignments."}
+              </p>
+            </div>
+            <button
+              className="account"
+              aria-label={`Sign out ${user.name}`}
+              onClick={async () => {
+                try {
+                  await api("logout", "POST");
+                  setWorkspace(null);
+                  setInsights(null);
+                  setAudit([]);
+                  setScreen("Home");
+                  setShowArchived(false);
+                  setModal(null);
+                  setSelected(null);
+                  setEntity(null);
+                  setError("");
+                  setNotice("Signed out successfully.");
+                  setDemo(await api<Person[]>("demo-users"));
+                } catch (e) {
+                  setError((e as Error).message);
+                }
               }}
             >
-              <Icon size={19} />
-              {name}
-              {name === "Home" && <span className="nav-dot" />}
+              <span className="avatar small">{initials(user.name)}</span>
+              <span>
+                {user.name}
+                <small>
+                  {user.role === "root"
+                    ? "Root administrator"
+                    : user.role === "lead"
+                      ? "Team lead"
+                      : user.role === "finance"
+                        ? "Finance admin"
+                        : "Employee"}
+                </small>
+              </span>
+              <LogOut size={16} />
+              <span className="shell-tooltip" role="tooltip">
+                Sign out
+              </span>
             </button>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="pilot-note">
-            <span>Built on trust.</span>
-            <p>
-              Contributions, not scores.
-              <br />
-              {screen === "Allocation"
-                ? "Invitations. Always opt-in."
-                : "Invitations, not assignments."}
-            </p>
           </div>
-          <button
-            className="account"
-            onClick={async () => {
-              try {
-                await api("logout", "POST");
-                setWorkspace(null);
-                setInsights(null);
-                setAudit([]);
-                setScreen("Home");
-                setShowArchived(false);
-                setModal(null);
-                setSelected(null);
-                setEntity(null);
-                setError("");
-                setNotice("Signed out successfully.");
-                setDemo(await api<Person[]>("demo-users"));
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            <span className="avatar small">{initials(user.name)}</span>
-            <span>
-              {user.name}
-              <small>
-                {user.role === "root"
-                  ? "Root administrator"
-                  : user.role === "lead"
-                    ? "Team lead"
-                    : user.role === "finance"
-                      ? "Finance admin"
-                      : "Employee"}
-              </small>
-            </span>
-            <LogOut size={16} />
-          </button>
-        </div>
-      </aside>
-      <div className="main">
-        <header className="topbar">
-          <div>
+        </>
+      }
+      header={
+        <>
+          <div className="breadcrumb" title={screen}>
             <span className="muted">Workspace</span>
             <span className="slash">/</span>
             {screen}
           </div>
           {!["People", "Organization"].includes(screen) && (
-            <label className="search">
-              <Search size={16} />
-              <input
-                aria-label="Search current module"
-                placeholder={`Search ${screen.toLowerCase()}…`}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
+            <ShellSearch screen={screen} query={query} onChange={setQuery} />
           )}
           {workspace.demoMode && (
             <label className="persona-control">
@@ -858,884 +854,877 @@ export default function Page() {
             </label>
           )}
           <span className="avatar small">{initials(user.name)}</span>
-        </header>
-        <main className="content">
-          <div className="page-heading">
-            <div>
-              {screen === "Home" && (
-                <div className="eyebrow">
-                  WELCOME BACK, {user.name.split(" ")[0].toUpperCase()}
-                </div>
-              )}
-              <h1>{intro[screen][0]}</h1>
-              <p>{intro[screen][1]}</p>
-            </div>
-            {screen === "Home" ? (
-              <button className="primary" onClick={() => setModal("post")}>
-                <Plus size={17} />
-                Share an update
-              </button>
-            ) : canCreate ? (
-              <button
-                className={screen === "Allocation" ? "secondary" : "primary"}
-                onClick={() =>
-                  setModal(
-                    screen === "Goals"
-                      ? "goal"
-                      : screen === "Budget"
-                        ? "budget"
-                        : "allocation",
-                  )
-                }
-              >
-                <Plus size={17} />
-                Create{" "}
-                {screen === "Goals"
-                  ? "goal"
-                  : screen === "Budget"
-                    ? "budget"
-                    : "opportunity"}
-              </button>
-            ) : null}
+        </>
+      }
+    >
+      <main id="main-content" className="content" tabIndex={-1}>
+        <div className="page-heading">
+          <div>
+            {screen === "Home" && (
+              <div className="eyebrow">
+                WELCOME BACK, {user.name.split(" ")[0].toUpperCase()}
+              </div>
+            )}
+            <h1>{intro[screen][0]}</h1>
+            <p>{intro[screen][1]}</p>
           </div>
-          {!["People", "Organization"].includes(screen) && (
-            <div className="module-tools">
-              {((isRoot && !["Insights", "Compliance"].includes(screen)) ||
-                (screen === "Budget" && isFinance) ||
-                (["Goals", "Allocation"].includes(screen) &&
-                  user.role !== "employee") ||
-                (screen === "Home" &&
-                  records.some((r) => r.owner_id === user.id))) && (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                  />{" "}
-                  Include archived{" "}
-                  {["People", "Organization"].includes(screen)
-                    ? "entries"
-                    : "records"}
-                </label>
-              )}
-              {isRoot && ["People", "Organization"].includes(screen) && (
-                <button
-                  className="primary"
-                  onClick={() => {
-                    setEntity(null);
-                    setModal(screen === "People" ? "person" : "team");
-                  }}
-                >
-                  <Plus size={16} />
-                  Create {screen === "People" ? "person" : "team"}
-                </button>
-              )}
-              {isRoot && <span className="chip">ROOT · ALL TEAMS</span>}
-            </div>
-          )}
-          {error && (
-            <div className="error" role="alert">
-              {error}
-              <button aria-label="Dismiss error" onClick={() => setError("")}>
-                <X size={15} />
-              </button>
-            </div>
-          )}
-          {notice && (
-            <div className="notice" role="status">
-              <Check size={16} />
-              {notice}
+          {screen === "Home" ? (
+            <button className="primary" onClick={() => setModal("post")}>
+              <Plus size={17} />
+              Share an update
+            </button>
+          ) : canCreate ? (
+            <button
+              className={screen === "Allocation" ? "secondary" : "primary"}
+              onClick={() =>
+                setModal(
+                  screen === "Goals"
+                    ? "goal"
+                    : screen === "Budget"
+                      ? "budget"
+                      : "allocation",
+                )
+              }
+            >
+              <Plus size={17} />
+              Create{" "}
+              {screen === "Goals"
+                ? "goal"
+                : screen === "Budget"
+                  ? "budget"
+                  : "opportunity"}
+            </button>
+          ) : null}
+        </div>
+        {!["People", "Organization"].includes(screen) && (
+          <div className="module-tools">
+            {((isRoot && !["Insights", "Compliance"].includes(screen)) ||
+              (screen === "Budget" && isFinance) ||
+              (["Goals", "Allocation"].includes(screen) &&
+                user.role !== "employee") ||
+              (screen === "Home" &&
+                records.some((r) => r.owner_id === user.id))) && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                />{" "}
+                Include archived{" "}
+                {["People", "Organization"].includes(screen)
+                  ? "entries"
+                  : "records"}
+              </label>
+            )}
+            {isRoot && ["People", "Organization"].includes(screen) && (
               <button
-                aria-label="Dismiss notification"
-                onClick={() => setNotice("")}
+                className="primary"
+                onClick={() => {
+                  setEntity(null);
+                  setModal(screen === "People" ? "person" : "team");
+                }}
               >
-                <X size={15} />
+                <Plus size={16} />
+                Create {screen === "People" ? "person" : "team"}
               </button>
-            </div>
-          )}
-          {screen === "Home" && (
-            <>
-              <section className="welcome-banner">
-                <div>
-                  <span className="eyebrow">BETTER, TOGETHER</span>
-                  <h2>
-                    Small updates.
-                    <br />A bigger picture.
-                  </h2>
-                  <p>
-                    Your work is part of something shared.
-                    <br />
-                    Let the rest of the team in.
-                  </p>
-                  <button onClick={() => setScreen("Goals")}>
-                    Explore our shared goals <ArrowUpRight size={16} />
-                  </button>
+            )}
+            {isRoot && <span className="chip">ROOT · ALL TEAMS</span>}
+          </div>
+        )}
+        {error && (
+          <div className="error" role="alert">
+            {error}
+            <button aria-label="Dismiss error" onClick={() => setError("")}>
+              <X size={15} />
+            </button>
+          </div>
+        )}
+        {screen === "Home" && (
+          <>
+            <section className="welcome-banner">
+              <div>
+                <span className="eyebrow">BETTER, TOGETHER</span>
+                <h2>
+                  Small updates.
+                  <br />A bigger picture.
+                </h2>
+                <p>
+                  Your work is part of something shared.
+                  <br />
+                  Let the rest of the team in.
+                </p>
+                <button onClick={() => setScreen("Goals")}>
+                  Explore our shared goals <ArrowUpRight size={16} />
+                </button>
+              </div>
+              <div className="banner-art" aria-hidden="true">
+                <div className="orbit orbit-one" />
+                <div className="orbit orbit-two" />
+                <div className="art-tile tile-one">
+                  <Flag />
+                  Shared purpose
                 </div>
-                <div className="banner-art" aria-hidden="true">
-                  <div className="orbit orbit-one" />
-                  <div className="orbit orbit-two" />
-                  <div className="art-tile tile-one">
-                    <Flag />
-                    Shared purpose
-                  </div>
-                  <div className="art-tile tile-two">
-                    <Users />
-                    Connected people
-                  </div>
-                  <div className="art-center">✳</div>
-                  <div className="art-tile tile-three">
-                    <Check />
-                    Meaningful progress
-                  </div>
+                <div className="art-tile tile-two">
+                  <Users />
+                  Connected people
                 </div>
-              </section>
-              <div className="home-grid">
-                <section>
-                  <div className="section-title">
-                    <h2>Your workspace, in motion</h2>
-                    <span className="muted">
-                      {
-                        records.filter((r) =>
-                          ["post", "recognition"].includes(r.kind),
-                        ).length
-                      }{" "}
-                      updates
-                    </span>
-                  </div>
-                  <div className="tabs">
-                    {["All updates", "Following", "Recognition"].map((t) => (
-                      <button
-                        className={feed === t ? "selected" : ""}
-                        key={t}
-                        onClick={() => setFeed(t)}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                  <button className="composer" onClick={() => setModal("post")}>
-                    <span className="avatar">{initials(user.name)}</span>
-                    <span>
-                      What’s moving forward, {user.name.split(" ")[0]}?
-                    </span>
-                    <Plus size={18} />
-                  </button>
-                  {records
-                    .filter(
-                      (r) =>
-                        ["post", "recognition"].includes(r.kind) &&
-                        matches(`${r.title} ${r.body}`) &&
-                        (feed !== "Recognition" || r.kind === "recognition") &&
-                        (feed !== "Following" ||
-                          workspace.following.includes(r.team_id)),
-                    )
-                    .map((r) => (
-                      <article className="card feed-card" key={r.id}>
-                        <div className="post-meta">
-                          <span
-                            className={`avatar ${r.owner_id === "alex" ? "blue" : ""}`}
-                          >
-                            {initials(person(r.owner_id)?.name || "?")}
-                          </span>
-                          <div>
-                            <strong>{person(r.owner_id)?.name}</strong>
-                            <span>
-                              {team(r.team_id)} <span>·</span>{" "}
-                              {date(r.created_at)}
-                            </span>
-                          </div>
-                          <span className="chip">
-                            {r.visibility === "team"
-                              ? "Team only"
-                              : r.kind === "recognition"
-                                ? "Recognition"
-                                : "Update"}
-                          </span>
-                        </div>
-                        {r.kind === "recognition" && (
-                          <div className="recognition-label">
-                            <Heart size={16} /> Celebrating{" "}
-                            {person(String(r.data.recipient))?.name} ·
-                            Collaboration
-                          </div>
-                        )}
-                        <h3>{r.title}</h3>
-                        <p>{r.body}</p>
-                        <div className="post-footer">
-                          <span>
-                            <MessageSquare size={15} /> Shared with{" "}
-                            {r.visibility === "team"
-                              ? "your team"
-                              : "Northstar"}
-                          </span>
-                          {source(r)}
-                        </div>
-                      </article>
-                    ))}
-                  {!records.some(
+                <div className="art-center">✳</div>
+                <div className="art-tile tile-three">
+                  <Check />
+                  Meaningful progress
+                </div>
+              </div>
+            </section>
+            <div className="home-grid">
+              <section>
+                <div className="section-title">
+                  <h2>Your workspace, in motion</h2>
+                  <span className="muted">
+                    {
+                      records.filter((r) =>
+                        ["post", "recognition"].includes(r.kind),
+                      ).length
+                    }{" "}
+                    updates
+                  </span>
+                </div>
+                <div className="tabs">
+                  {["All updates", "Following", "Recognition"].map((t) => (
+                    <button
+                      className={feed === t ? "selected" : ""}
+                      key={t}
+                      onClick={() => setFeed(t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <button className="composer" onClick={() => setModal("post")}>
+                  <span className="avatar">{initials(user.name)}</span>
+                  <span>What’s moving forward, {user.name.split(" ")[0]}?</span>
+                  <Plus size={18} />
+                </button>
+                {records
+                  .filter(
                     (r) =>
                       ["post", "recognition"].includes(r.kind) &&
                       matches(`${r.title} ${r.body}`) &&
                       (feed !== "Recognition" || r.kind === "recognition") &&
                       (feed !== "Following" ||
                         workspace.following.includes(r.team_id)),
-                  ) &&
-                    empty(
-                      "Follow a team in Organization or share your first update.",
-                    )}
-                </section>
-                <aside className="right-rail">
-                  <div className="card">
-                    <span className="eyebrow">
-                      A LITTLE RECOGNITION GOES FAR
-                    </span>
-                    <div className="recognition-icon">✺</div>
-                    <h3>Who made a difference?</h3>
-                    <p>
-                      Celebrate a contribution that helped move things forward.
-                    </p>
-                    <button
-                      className="secondary full"
-                      onClick={() => setModal("recognition")}
-                    >
-                      <Heart size={16} />
-                      Recognize a colleague
-                    </button>
-                  </div>
-                  <div className="card">
-                    <div className="section-title">
-                      <h3>Connected work</h3>
-                      <Flag size={18} />
-                    </div>
-                    {records
-                      .filter((r) => r.kind === "goal")
-                      .slice(0, 3)
-                      .map((r) => (
-                        <button
-                          className="goal-link"
-                          key={r.id}
-                          onClick={() => setScreen("Goals")}
+                  )
+                  .map((r) => (
+                    <article className="card feed-card" key={r.id}>
+                      <div className="post-meta">
+                        <span
+                          className={`avatar ${r.owner_id === "alex" ? "blue" : ""}`}
                         >
-                          <span>{r.title}</span>
-                          <div className="progress">
-                            <i style={{ width: `${r.data.progress}%` }} />
+                          {initials(person(r.owner_id)?.name || "?")}
+                        </span>
+                        <div>
+                          <strong>{person(r.owner_id)?.name}</strong>
+                          <span>
+                            {team(r.team_id)} <span>·</span>{" "}
+                            {date(r.created_at)}
+                          </span>
+                        </div>
+                        <span className="chip">
+                          {r.visibility === "team"
+                            ? "Team only"
+                            : r.kind === "recognition"
+                              ? "Recognition"
+                              : "Update"}
+                        </span>
+                      </div>
+                      {r.kind === "recognition" && (
+                        <div className="recognition-label">
+                          <Heart size={16} /> Celebrating{" "}
+                          {person(String(r.data.recipient))?.name} ·
+                          Collaboration
+                        </div>
+                      )}
+                      <h3>{r.title}</h3>
+                      <p>{r.body}</p>
+                      <div className="post-footer">
+                        <span>
+                          <MessageSquare size={15} /> Shared with{" "}
+                          {r.visibility === "team" ? "your team" : "Northstar"}
+                        </span>
+                        {source(r)}
+                      </div>
+                    </article>
+                  ))}
+                {!records.some(
+                  (r) =>
+                    ["post", "recognition"].includes(r.kind) &&
+                    matches(`${r.title} ${r.body}`) &&
+                    (feed !== "Recognition" || r.kind === "recognition") &&
+                    (feed !== "Following" ||
+                      workspace.following.includes(r.team_id)),
+                ) &&
+                  empty(
+                    "Follow a team in Organization or share your first update.",
+                  )}
+              </section>
+              <aside className="right-rail">
+                <div className="card">
+                  <span className="eyebrow">A LITTLE RECOGNITION GOES FAR</span>
+                  <div className="recognition-icon">✺</div>
+                  <h3>Who made a difference?</h3>
+                  <p>
+                    Celebrate a contribution that helped move things forward.
+                  </p>
+                  <button
+                    className="secondary full"
+                    onClick={() => setModal("recognition")}
+                  >
+                    <Heart size={16} />
+                    Recognize a colleague
+                  </button>
+                </div>
+                <div className="card">
+                  <div className="section-title">
+                    <h3>Connected work</h3>
+                    <Flag size={18} />
+                  </div>
+                  {records
+                    .filter((r) => r.kind === "goal")
+                    .slice(0, 3)
+                    .map((r) => (
+                      <button
+                        className="goal-link"
+                        key={r.id}
+                        onClick={() => setScreen("Goals")}
+                      >
+                        <span>{r.title}</span>
+                        <div className="progress">
+                          <i style={{ width: `${r.data.progress}%` }} />
+                        </div>
+                        <small>
+                          {r.data.progress}% · {team(r.team_id)}
+                        </small>
+                      </button>
+                    ))}
+                </div>
+                <div className="quiet-note">
+                  <ShieldCheck size={18} />
+                  <p>
+                    What you see respects your role and team. Recognition is
+                    never a performance score.
+                  </p>
+                </div>
+              </aside>
+            </div>
+          </>
+        )}
+        {screen === "People" && (
+          <PeopleDirectory
+            key={user.id}
+            people={people}
+            teams={teams}
+            user={user}
+            state={peopleState}
+            busy={busy}
+            onRetry={() => setPeopleRetry((n) => n + 1)}
+            onExpertise={() => setModal("skills")}
+            onCreate={() => {
+              setEntity(null);
+              setModal("person");
+            }}
+            onEdit={(p) => {
+              setEntity(p);
+              setModal("person");
+            }}
+            onArchive={(p) =>
+              requestArchive(`people/${p.id}`, p.name, p.archived_at)
+            }
+            onRecognize={(p) => {
+              setRecipient(p.id);
+              setModal("recognition");
+            }}
+            renderProfileWork={(p) => {
+              const work = workspace.records.filter(
+                (r) =>
+                  !r.archived_at &&
+                  r.kind !== "recognition" &&
+                  r.owner_id === p.id,
+              );
+              const recognition = workspace.records.filter(
+                (r) =>
+                  !r.archived_at &&
+                  r.kind === "recognition" &&
+                  (r.data.recipient === p.id || r.owner_id === p.id),
+              );
+              return (
+                <div className="people-profile-work">
+                  <section>
+                    <h3>Shared work</h3>
+                    {work.length ? (
+                      work.map((r) => (
+                        <article key={r.id}>
+                          <h4>{r.title}</h4>
+                          <p>{r.body}</p>
+                          <small>As of {date(r.updated_at)}</small>
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setSelected(r);
+                              setModal("source");
+                            }}
+                          >
+                            View source <ExternalLink size={14} />
+                          </button>
+                        </article>
+                      ))
+                    ) : (
+                      <p>No shared work is available in your current view.</p>
+                    )}
+                  </section>
+                  <section>
+                    <h3>Recognition</h3>
+                    {recognition.length ? (
+                      recognition.map((r) => (
+                        <article key={r.id}>
+                          <h4>{r.title}</h4>
+                          <p>{r.body}</p>
+                          <small>As of {date(r.updated_at)}</small>
+                          <p>
+                            From {person(r.owner_id)?.name || "Colleague"} to{" "}
+                            {person(String(r.data.recipient))?.name ||
+                              "Colleague"}{" "}
+                            · {date(r.created_at)}
+                          </p>
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setSelected(r);
+                              setModal("source");
+                            }}
+                          >
+                            View source <ExternalLink size={14} />
+                          </button>
+                        </article>
+                      ))
+                    ) : (
+                      <p>No recognition is available in your current view.</p>
+                    )}
+                  </section>
+                </div>
+              );
+            }}
+            opportunities={
+              workspace.records.some(
+                (r) => r.kind === "allocation" && !r.archived_at,
+              ) && (
+                <section className="people-opportunities">
+                  <h2>Communities and opportunities to join</h2>
+                  <p>
+                    Explore opportunities shared with you. Interest does not
+                    commit your time.
+                  </p>
+                  <ul>
+                    {workspace.records
+                      .filter((r) => r.kind === "allocation" && !r.archived_at)
+                      .map((r) => (
+                        <li key={r.id}>
+                          <div>
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setSelected(r);
+                                setModal("source");
+                              }}
+                            >
+                              {r.title}
+                            </button>
+                            <p>{team(r.team_id)}</p>
                           </div>
-                          <small>
-                            {r.data.progress}% · {team(r.team_id)}
-                          </small>
-                        </button>
+                          <div>
+                            {workspace.joined.includes(r.id) && (
+                              <span>
+                                <Check size={16} aria-hidden="true" />{" "}
+                                Interested
+                              </span>
+                            )}
+                            <button
+                              className="secondary"
+                              disabled={
+                                busy || interestStates[r.id]?.status === "error"
+                              }
+                              onClick={() =>
+                                void changeInterest(
+                                  r.id,
+                                  !workspace.joined.includes(r.id),
+                                )
+                              }
+                            >
+                              {interestStates[r.id]?.status === "saving"
+                                ? "Saving..."
+                                : workspace.joined.includes(r.id)
+                                  ? "Withdraw interest"
+                                  : "I'm interested"}
+                            </button>
+                            {interestStates[r.id]?.status === "error" && (
+                              <div role="alert">
+                                <p>{interestStates[r.id]?.message}</p>
+                                <button
+                                  className="text-button"
+                                  onClick={() =>
+                                    void changeInterest(
+                                      r.id,
+                                      interestStates[r.id]?.desired ??
+                                        !workspace.joined.includes(r.id),
+                                    )
+                                  }
+                                >
+                                  Retry
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </li>
                       ))}
+                  </ul>
+                </section>
+              )
+            }
+          />
+        )}
+        {screen === "Organization" && (
+          <OrganizationDirectory
+            key={user.id}
+            teams={teams}
+            people={people}
+            records={workspace.records}
+            userRole={user.role}
+            following={workspace.following}
+            asOf={workspace.asOf}
+            state={organizationState}
+            busy={busy}
+            onRetry={() => setOrganizationRetry((n) => n + 1)}
+            onCreate={() => {
+              setEntity(null);
+              setModal("team");
+            }}
+            onEdit={(t) => {
+              setEntity(t);
+              setModal("team");
+            }}
+            onArchive={(t) =>
+              requestArchive(`teams/${t.id}`, t.name, t.archived_at)
+            }
+            onFollow={changeFollow}
+            onSource={(id) => {
+              const record = workspace.records.find((r) => r.id === id);
+              if (record) {
+                setSelected(record);
+                setModal("source");
+              }
+            }}
+            onGoal={(id) => {
+              const record = workspace.records.find((r) => r.id === id);
+              if (record) {
+                setScreen("Goals");
+                setSelected(record);
+                setModal("source");
+              }
+            }}
+          />
+        )}
+        {screen === "Goals" && (
+          <div className="cards-grid two">
+            {filtered("goal").map((r) => (
+              <article className="card" key={r.id}>
+                <div className="section-title">
+                  <span className="chip">{team(r.team_id)}</span>
+                  <Flag size={19} />
+                </div>
+                <h2>{r.title}</h2>
+                <p>{r.body}</p>
+                <div className="goal-progress">
+                  <strong>
+                    {r.data.progress}
+                    <small>%</small>
+                  </strong>
+                  <span>
+                    {r.data.total
+                      ? `${r.data.completed} of ${r.data.total} ${r.data.unit} complete`
+                      : "Owner estimate · measurement not recorded"}
+                  </span>
+                </div>
+                <div className="progress">
+                  <i style={{ width: `${r.data.progress}%` }} />
+                </div>
+                <div className="evidence">
+                  <span className="eyebrow">LATEST EVIDENCE</span>
+                  <p>{r.data.evidence}</p>
+                  <p>
+                    {r.data.total
+                      ? `${r.data.completed} ÷ ${r.data.total} × 100 = ${r.data.progress}%`
+                      : "No numerator or denominator supplied."}{" "}
+                    · Evidence dated{" "}
+                    {r.data.evidenceDate
+                      ? date(String(r.data.evidenceDate) + "T12:00:00Z")
+                      : "not recorded"}
+                  </p>
+                  <small>
+                    Updated {date(r.updated_at)} · {person(r.owner_id)?.name}
+                  </small>
+                </div>
+                <div className="card-actions">{source(r)}</div>
+              </article>
+            ))}
+            {!filtered("goal").length && empty("No goals match your search.")}
+          </div>
+        )}
+        {screen === "Allocation" && (
+          <>
+            <div className="info-strip allocation-info">
+              <Compass size={20} />
+              <span>
+                Opt in to work that interests you. Joining expresses interest;
+                it never changes your manager or automatically commits capacity.
+              </span>
+            </div>
+            <div className="cards-grid two allocation-grid">
+              {filtered("allocation").map((r) => (
+                <AllocationCard
+                  key={`${user.id}-${r.id}`}
+                  record={r}
+                  user={user}
+                  team={team}
+                  people={people}
+                  interests={workspace.interests}
+                  joined={workspace.joined.includes(r.id)}
+                  state={interestStates[r.id] || { status: "idle" }}
+                  listState={colleagueStates[r.id] || "ready"}
+                  disabled={busy}
+                  onInterest={() => void changeInterest(r.id, true)}
+                  onWithdraw={() => void changeInterest(r.id, false)}
+                  onRetry={() =>
+                    void changeInterest(
+                      r.id,
+                      interestStates[r.id]?.desired ??
+                        !workspace.joined.includes(r.id),
+                    )
+                  }
+                  onReload={() => void reloadColleagues(r.id)}
+                  onSource={() => {
+                    setSelected(r);
+                    setModal("source");
+                  }}
+                />
+              ))}
+              {!filtered("allocation").length &&
+                empty(
+                  "No opportunities match. Clear your search or check back for shared work.",
+                )}
+            </div>
+          </>
+        )}
+        {screen === "Budget" &&
+          (!isFinance ? (
+            <div className="empty">
+              <ShieldCheck size={35} />
+              <h2>Finance access required</h2>
+              <p>
+                Budget records are restricted to finance and root
+                administrators. Use “View as” in this demo to explore Jordan’s
+                finance view.
+              </p>
+              <small>
+                This restriction is enforced by the API, including search and
+                Insights.
+              </small>
+            </div>
+          ) : (
+            <>
+              <div className="summary-row">
+                {[
+                  [
+                    "Planned",
+                    filtered("budget").reduce(
+                      (s, r) => s + Number(r.data.planned),
+                      0,
+                    ),
+                  ],
+                  [
+                    "Actual spend",
+                    filtered("budget").reduce(
+                      (s, r) => s + Number(r.data.actual),
+                      0,
+                    ),
+                  ],
+                  [
+                    "Remaining",
+                    filtered("budget").reduce(
+                      (s, r) =>
+                        s + Number(r.data.planned) - Number(r.data.actual),
+                      0,
+                    ),
+                  ],
+                ].map(([label, value]) => (
+                  <div className="card" key={label}>
+                    <span>{label}</span>
+                    <strong>${Number(value).toLocaleString()}</strong>
+                    <small>
+                      USD · visible records · as of {date(workspace.asOf)}
+                    </small>
                   </div>
-                  <div className="quiet-note">
-                    <ShieldCheck size={18} />
-                    <p>
-                      What you see respects your role and team. Recognition is
-                      never a performance score.
-                    </p>
-                  </div>
-                </aside>
+                ))}
+              </div>
+              <div className="cards-grid two">
+                {filtered("budget").map((r) => (
+                  <article className="card" key={r.id}>
+                    <span className="chip">
+                      {team(r.team_id)} · FINANCE ONLY
+                    </span>
+                    <h2>{r.title}</h2>
+                    <p>{r.body}</p>
+                    <div className="metrics">
+                      <div>
+                        <strong>
+                          ${Number(r.data.planned).toLocaleString()}
+                        </strong>
+                        <span>planned</span>
+                      </div>
+                      <div>
+                        <strong>
+                          ${Number(r.data.actual).toLocaleString()}
+                        </strong>
+                        <span>actual</span>
+                      </div>
+                    </div>
+                    <div className="evidence">
+                      <span className="eyebrow">WHAT DRIVES THE SPEND</span>
+                      <p>{r.data.driver}</p>
+                      <small>Updated {date(r.updated_at)}</small>
+                    </div>
+                    <div className="card-actions">{source(r)}</div>
+                  </article>
+                ))}
               </div>
             </>
-          )}
-          {screen === "People" && (
-            <PeopleDirectory
-              key={user.id}
-              people={people}
-              teams={teams}
-              user={user}
-              state={peopleState}
-              busy={busy}
-              onRetry={() => setPeopleRetry((n) => n + 1)}
-              onExpertise={() => setModal("skills")}
-              onCreate={() => {
-                setEntity(null);
-                setModal("person");
-              }}
-              onEdit={(p) => {
-                setEntity(p);
-                setModal("person");
-              }}
-              onArchive={(p) =>
-                requestArchive(`people/${p.id}`, p.name, p.archived_at)
-              }
-              onRecognize={(p) => {
-                setRecipient(p.id);
-                setModal("recognition");
-              }}
-              renderProfileWork={(p) => {
-                const work = workspace.records.filter(
-                  (r) =>
-                    !r.archived_at &&
-                    r.kind !== "recognition" &&
-                    r.owner_id === p.id,
-                );
-                const recognition = workspace.records.filter(
-                  (r) =>
-                    !r.archived_at &&
-                    r.kind === "recognition" &&
-                    (r.data.recipient === p.id || r.owner_id === p.id),
-                );
-                return (
-                  <div className="people-profile-work">
-                    <section>
-                      <h3>Shared work</h3>
-                      {work.length ? (
-                        work.map((r) => (
-                          <article key={r.id}>
-                            <h4>{r.title}</h4>
-                            <p>{r.body}</p>
-                            <small>As of {date(r.updated_at)}</small>
+          ))}
+        {screen === "Insights" && (
+          <>
+            {!insights ? (
+              <p>Loading source-backed answers…</p>
+            ) : (
+              <>
+                <div className="info-strip">
+                  <ShieldCheck size={20} />
+                  <span>
+                    {insights.mode}
+                    <br />
+                    {insights.coverage}
+                  </span>
+                </div>
+                <div className="cards-grid">
+                  {insights.answers
+                    .filter((a) => matches(`${a.title} ${a.explanation}`))
+                    .map((a) => (
+                      <article className="card insight-card" key={a.title}>
+                        <span className="eyebrow">CONNECTED INTELLIGENCE</span>
+                        <h2>{a.title}</h2>
+                        <strong className="insight-number">{a.value}</strong>
+                        <p>{a.explanation}</p>
+                        <p className="muted">{a.coverage}</p>
+                        <small>As of {date(insights.asOf)}</small>
+                        <details className="sources">
+                          <summary>Evidence behind this answer</summary>
+                          <p>{a.arithmetic}</p>
+                          <span className="eyebrow">
+                            EVIDENCE · {a.sources.length} RECORDS
+                          </span>
+                          {a.sources.map((r) => (
                             <button
-                              className="text-button"
+                              key={r.id}
                               onClick={() => {
                                 setSelected(r);
                                 setModal("source");
                               }}
                             >
-                              View source <ExternalLink size={14} />
+                              {r.title}
+                              <ExternalLink size={14} />
                             </button>
-                          </article>
-                        ))
-                      ) : (
-                        <p>No shared work is available in your current view.</p>
-                      )}
-                    </section>
-                    <section>
-                      <h3>Recognition</h3>
-                      {recognition.length ? (
-                        recognition.map((r) => (
-                          <article key={r.id}>
-                            <h4>{r.title}</h4>
-                            <p>{r.body}</p>
-                            <small>As of {date(r.updated_at)}</small>
-                            <p>
-                              From {person(r.owner_id)?.name || "Colleague"} to{" "}
-                              {person(String(r.data.recipient))?.name ||
-                                "Colleague"}{" "}
-                              · {date(r.created_at)}
-                            </p>
-                            <button
-                              className="text-button"
-                              onClick={() => {
-                                setSelected(r);
-                                setModal("source");
-                              }}
-                            >
-                              View source <ExternalLink size={14} />
-                            </button>
-                          </article>
-                        ))
-                      ) : (
-                        <p>No recognition is available in your current view.</p>
-                      )}
-                    </section>
-                  </div>
-                );
-              }}
-              opportunities={
-                workspace.records.some(
-                  (r) => r.kind === "allocation" && !r.archived_at,
-                ) && (
-                  <section className="people-opportunities">
-                    <h2>Communities and opportunities to join</h2>
-                    <p>
-                      Explore opportunities shared with you. Interest does not
-                      commit your time.
-                    </p>
-                    <ul>
-                      {workspace.records
-                        .filter(
-                          (r) => r.kind === "allocation" && !r.archived_at,
-                        )
-                        .map((r) => (
-                          <li key={r.id}>
-                            <div>
+                          ))}
+                        </details>
+                      </article>
+                    ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+        {screen === "Compliance" && (
+          <>
+            <div className="info-strip">
+              <ShieldCheck size={20} />
+              <span>
+                {isFinance
+                  ? "Finance and root admins can review all audit entries."
+                  : user.role === "lead"
+                    ? "Team leads can review their team’s non-financial changes and their own actions."
+                    : "Employees can review their own actions."}{" "}
+                Audit entries are created transactionally with sensitive
+                changes.
+              </span>
+            </div>
+            <div className="card audit-card">
+              <h2>Activity trail</h2>
+              <p>
+                Latest 500 audit entries, filtered to your permissions. Seeded
+                demonstration history is marked in the change details. UTC
+                timestamps are shown in your browser’s timezone.
+              </p>
+              <div
+                className="table-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label="Activity trail table"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Who</th>
+                      <th>Action</th>
+                      <th>When</th>
+                      <th>Record / change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {audit
+                      .filter((a) =>
+                        matches(`${a.actor} ${a.action} ${a.record_label}`),
+                      )
+                      .map((a) => (
+                        <tr key={a.id}>
+                          <td>{a.actor}</td>
+                          <td>
+                            <span className="chip">{a.action}</span>
+                          </td>
+                          <td>{new Date(a.created_at).toLocaleString()}</td>
+                          <td>
+                            <span>{a.record_label}</span>
+                            {workspace.records.some(
+                              (r) => r.id === a.record_id,
+                            ) && (
                               <button
                                 className="text-button"
                                 onClick={() => {
-                                  setSelected(r);
+                                  setSelected(
+                                    workspace.records.find(
+                                      (r) => r.id === a.record_id,
+                                    )!,
+                                  );
                                   setModal("source");
                                 }}
                               >
-                                {r.title}
+                                View current source
                               </button>
-                              <p>{team(r.team_id)}</p>
-                            </div>
-                            <div>
-                              {workspace.joined.includes(r.id) && (
-                                <span>
-                                  <Check size={16} aria-hidden="true" />{" "}
-                                  Interested
-                                </span>
-                              )}
-                              <button
-                                className="secondary"
-                                disabled={
-                                  busy ||
-                                  interestStates[r.id]?.status === "error"
-                                }
-                                onClick={() =>
-                                  void changeInterest(
-                                    r.id,
-                                    !workspace.joined.includes(r.id),
-                                  )
-                                }
-                              >
-                                {interestStates[r.id]?.status === "saving"
-                                  ? "Saving..."
-                                  : workspace.joined.includes(r.id)
-                                    ? "Withdraw interest"
-                                    : "I'm interested"}
-                              </button>
-                              {interestStates[r.id]?.status === "error" && (
-                                <div role="alert">
-                                  <p>{interestStates[r.id]?.message}</p>
-                                  <button
-                                    className="text-button"
-                                    onClick={() =>
-                                      void changeInterest(
-                                        r.id,
-                                        interestStates[r.id]?.desired ??
-                                          !workspace.joined.includes(r.id),
-                                      )
-                                    }
-                                  >
-                                    Retry
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                    </ul>
-                  </section>
-                )
-              }
-            />
-          )}
-          {screen === "Organization" && (
-            <OrganizationDirectory
-              key={user.id}
-              teams={teams}
-              people={people}
-              records={workspace.records}
-              userRole={user.role}
-              following={workspace.following}
-              asOf={workspace.asOf}
-              state={organizationState}
-              busy={busy}
-              onRetry={() => setOrganizationRetry((n) => n + 1)}
-              onCreate={() => {
-                setEntity(null);
-                setModal("team");
-              }}
-              onEdit={(t) => {
-                setEntity(t);
-                setModal("team");
-              }}
-              onArchive={(t) =>
-                requestArchive(`teams/${t.id}`, t.name, t.archived_at)
-              }
-              onFollow={changeFollow}
-              onSource={(id) => {
-                const record = workspace.records.find((r) => r.id === id);
-                if (record) {
-                  setSelected(record);
-                  setModal("source");
-                }
-              }}
-              onGoal={(id) => {
-                const record = workspace.records.find((r) => r.id === id);
-                if (record) {
-                  setScreen("Goals");
-                  setSelected(record);
-                  setModal("source");
-                }
-              }}
-            />
-          )}
-          {screen === "Goals" && (
-            <div className="cards-grid two">
-              {filtered("goal").map((r) => (
-                <article className="card" key={r.id}>
-                  <div className="section-title">
-                    <span className="chip">{team(r.team_id)}</span>
-                    <Flag size={19} />
-                  </div>
-                  <h2>{r.title}</h2>
-                  <p>{r.body}</p>
-                  <div className="goal-progress">
-                    <strong>
-                      {r.data.progress}
-                      <small>%</small>
-                    </strong>
-                    <span>
-                      {r.data.total
-                        ? `${r.data.completed} of ${r.data.total} ${r.data.unit} complete`
-                        : "Owner estimate · measurement not recorded"}
-                    </span>
-                  </div>
-                  <div className="progress">
-                    <i style={{ width: `${r.data.progress}%` }} />
-                  </div>
-                  <div className="evidence">
-                    <span className="eyebrow">LATEST EVIDENCE</span>
-                    <p>{r.data.evidence}</p>
-                    <p>
-                      {r.data.total
-                        ? `${r.data.completed} ÷ ${r.data.total} × 100 = ${r.data.progress}%`
-                        : "No numerator or denominator supplied."}{" "}
-                      · Evidence dated{" "}
-                      {r.data.evidenceDate
-                        ? date(String(r.data.evidenceDate) + "T12:00:00Z")
-                        : "not recorded"}
-                    </p>
-                    <small>
-                      Updated {date(r.updated_at)} · {person(r.owner_id)?.name}
-                    </small>
-                  </div>
-                  <div className="card-actions">{source(r)}</div>
-                </article>
-              ))}
-              {!filtered("goal").length && empty("No goals match your search.")}
-            </div>
-          )}
-          {screen === "Allocation" && (
-            <>
-              <div className="info-strip allocation-info">
-                <Compass size={20} />
-                <span>
-                  Opt in to work that interests you. Joining expresses interest;
-                  it never changes your manager or automatically commits
-                  capacity.
-                </span>
-              </div>
-              <div className="cards-grid two allocation-grid">
-                {filtered("allocation").map((r) => (
-                  <AllocationCard
-                    key={`${user.id}-${r.id}`}
-                    record={r}
-                    user={user}
-                    team={team}
-                    people={people}
-                    interests={workspace.interests}
-                    joined={workspace.joined.includes(r.id)}
-                    state={interestStates[r.id] || { status: "idle" }}
-                    listState={colleagueStates[r.id] || "ready"}
-                    disabled={busy}
-                    onInterest={() => void changeInterest(r.id, true)}
-                    onWithdraw={() => void changeInterest(r.id, false)}
-                    onRetry={() =>
-                      void changeInterest(
-                        r.id,
-                        interestStates[r.id]?.desired ??
-                          !workspace.joined.includes(r.id),
-                      )
-                    }
-                    onReload={() => void reloadColleagues(r.id)}
-                    onSource={() => {
-                      setSelected(r);
-                      setModal("source");
-                    }}
-                  />
-                ))}
-                {!filtered("allocation").length &&
-                  empty(
-                    "No opportunities match. Clear your search or check back for shared work.",
-                  )}
-              </div>
-            </>
-          )}
-          {screen === "Budget" &&
-            (!isFinance ? (
-              <div className="empty">
-                <ShieldCheck size={35} />
-                <h2>Finance access required</h2>
-                <p>
-                  Budget records are restricted to finance and root
-                  administrators. Use “View as” in this demo to explore Jordan’s
-                  finance view.
-                </p>
-                <small>
-                  This restriction is enforced by the API, including search and
-                  Insights.
-                </small>
-              </div>
-            ) : (
-              <>
-                <div className="summary-row">
-                  {[
-                    [
-                      "Planned",
-                      filtered("budget").reduce(
-                        (s, r) => s + Number(r.data.planned),
-                        0,
-                      ),
-                    ],
-                    [
-                      "Actual spend",
-                      filtered("budget").reduce(
-                        (s, r) => s + Number(r.data.actual),
-                        0,
-                      ),
-                    ],
-                    [
-                      "Remaining",
-                      filtered("budget").reduce(
-                        (s, r) =>
-                          s + Number(r.data.planned) - Number(r.data.actual),
-                        0,
-                      ),
-                    ],
-                  ].map(([label, value]) => (
-                    <div className="card" key={label}>
-                      <span>{label}</span>
-                      <strong>${Number(value).toLocaleString()}</strong>
-                      <small>
-                        USD · visible records · as of {date(workspace.asOf)}
-                      </small>
-                    </div>
-                  ))}
-                </div>
-                <div className="cards-grid two">
-                  {filtered("budget").map((r) => (
-                    <article className="card" key={r.id}>
-                      <span className="chip">
-                        {team(r.team_id)} · FINANCE ONLY
-                      </span>
-                      <h2>{r.title}</h2>
-                      <p>{r.body}</p>
-                      <div className="metrics">
-                        <div>
-                          <strong>
-                            ${Number(r.data.planned).toLocaleString()}
-                          </strong>
-                          <span>planned</span>
-                        </div>
-                        <div>
-                          <strong>
-                            ${Number(r.data.actual).toLocaleString()}
-                          </strong>
-                          <span>actual</span>
-                        </div>
-                      </div>
-                      <div className="evidence">
-                        <span className="eyebrow">WHAT DRIVES THE SPEND</span>
-                        <p>{r.data.driver}</p>
-                        <small>Updated {date(r.updated_at)}</small>
-                      </div>
-                      <div className="card-actions">{source(r)}</div>
-                    </article>
-                  ))}
-                </div>
-              </>
-            ))}
-          {screen === "Insights" && (
-            <>
-              {!insights ? (
-                <p>Loading source-backed answers…</p>
-              ) : (
-                <>
-                  <div className="info-strip">
-                    <ShieldCheck size={20} />
-                    <span>
-                      {insights.mode}
-                      <br />
-                      {insights.coverage}
-                    </span>
-                  </div>
-                  <div className="cards-grid">
-                    {insights.answers
-                      .filter((a) => matches(`${a.title} ${a.explanation}`))
-                      .map((a) => (
-                        <article className="card insight-card" key={a.title}>
-                          <span className="eyebrow">
-                            CONNECTED INTELLIGENCE
-                          </span>
-                          <h2>{a.title}</h2>
-                          <strong className="insight-number">{a.value}</strong>
-                          <p>{a.explanation}</p>
-                          <p className="muted">{a.coverage}</p>
-                          <small>As of {date(insights.asOf)}</small>
-                          <details className="sources">
-                            <summary>Evidence behind this answer</summary>
-                            <p>{a.arithmetic}</p>
-                            <span className="eyebrow">
-                              EVIDENCE · {a.sources.length} RECORDS
-                            </span>
-                            {a.sources.map((r) => (
-                              <button
-                                key={r.id}
-                                onClick={() => {
-                                  setSelected(r);
-                                  setModal("source");
-                                }}
-                              >
-                                {r.title}
-                                <ExternalLink size={14} />
-                              </button>
-                            ))}
-                          </details>
-                        </article>
-                      ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-          {screen === "Compliance" && (
-            <>
-              <div className="info-strip">
-                <ShieldCheck size={20} />
-                <span>
-                  {isFinance
-                    ? "Finance and root admins can review all audit entries."
-                    : user.role === "lead"
-                      ? "Team leads can review their team’s non-financial changes and their own actions."
-                      : "Employees can review their own actions."}{" "}
-                  Audit entries are created transactionally with sensitive
-                  changes.
-                </span>
-              </div>
-              <div className="card audit-card">
-                <h2>Activity trail</h2>
-                <p>
-                  Latest 500 audit entries, filtered to your permissions. Seeded
-                  demonstration history is marked in the change details. UTC
-                  timestamps are shown in your browser’s timezone.
-                </p>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Who</th>
-                        <th>Action</th>
-                        <th>When</th>
-                        <th>Record / change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {audit
-                        .filter((a) =>
-                          matches(`${a.actor} ${a.action} ${a.record_label}`),
-                        )
-                        .map((a) => (
-                          <tr key={a.id}>
-                            <td>{a.actor}</td>
-                            <td>
-                              <span className="chip">{a.action}</span>
-                            </td>
-                            <td>{new Date(a.created_at).toLocaleString()}</td>
-                            <td>
-                              <span>{a.record_label}</span>
-                              {workspace.records.some(
-                                (r) => r.id === a.record_id,
-                              ) && (
-                                <button
-                                  className="text-button"
-                                  onClick={() => {
-                                    setSelected(
-                                      workspace.records.find(
-                                        (r) => r.id === a.record_id,
-                                      )!,
-                                    );
-                                    setModal("source");
-                                  }}
-                                >
-                                  View current source
-                                </button>
-                              )}
-                              {Object.keys(a.detail as object).length > 0 && (
-                                <AuditDetails detail={a.detail} />
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-                {auditState === "loading" && (
-                  <p role="status">Loading activity…</p>
-                )}
-                {auditState === "error" && (
-                  <div className="empty">
-                    <p>Activity could not be loaded.</p>
-                    <button onClick={() => setAuditRetry((n) => n + 1)}>
-                      Try again
-                    </button>
-                  </div>
-                )}
-                {auditState === "ready" &&
-                  !audit.some((a) =>
-                    matches(`${a.actor} ${a.action} ${a.record_label}`),
-                  ) &&
-                  empty(
-                    query
-                      ? "No activity matches your search."
-                      : "No activity is available for your current access.",
-                  )}
-              </div>
-              <div className="card audit-card">
-                <h2>Access at a glance</h2>
-                <p>
-                  Current policy by role. Team-private records remain
-                  team-scoped, including for Finance; Root can review all teams.
-                </p>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Role</th>
-                        <th>Visible records</th>
-                        <th>Can change</th>
-                        <th>Audit access</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        [
-                          "Employee",
-                          "Company + own team",
-                          "Own posts, recognition and expertise; voluntary interest/follows",
-                          "Own actions",
-                        ],
-                        [
-                          "Team lead",
-                          "Company + own team",
-                          "Employee actions + own team goals/opportunities",
-                          "Own actions + team non-financial actions",
-                        ],
-                        [
-                          "Finance",
-                          "Company + own team + budgets",
-                          "Visible goals/opportunities and budgets; own posts/expertise",
-                          "All activity",
-                        ],
-                        [
-                          "Root administrator",
-                          "All teams and budgets",
-                          "All records, people and teams",
-                          "All activity; read-only in this app",
-                        ],
-                      ].map((row) => (
-                        <tr key={row[0]}>
-                          {row.map((cell) => (
-                            <td key={cell}>{cell}</td>
-                          ))}
+                            )}
+                            {Object.keys(a.detail as object).length > 0 && (
+                              <AuditDetails detail={a.detail} />
+                            )}
+                          </td>
                         </tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                  </tbody>
+                </table>
               </div>
-            </>
-          )}
-          <footer className="page-footer">
-            <span>✳ Northstar · A Commons pilot</span>
-            <span>Fictional data. Thoughtfully connected.</span>
-          </footer>
-        </main>
-      </div>
+              {auditState === "loading" && (
+                <p role="status">Loading activity…</p>
+              )}
+              {auditState === "error" && (
+                <div className="empty">
+                  <p>Activity could not be loaded.</p>
+                  <button onClick={() => setAuditRetry((n) => n + 1)}>
+                    Try again
+                  </button>
+                </div>
+              )}
+              {auditState === "ready" &&
+                !audit.some((a) =>
+                  matches(`${a.actor} ${a.action} ${a.record_label}`),
+                ) &&
+                empty(
+                  query
+                    ? "No activity matches your search."
+                    : "No activity is available for your current access.",
+                )}
+            </div>
+            <div className="card audit-card">
+              <h2>Access at a glance</h2>
+              <p>
+                Current policy by role. Team-private records remain team-scoped,
+                including for Finance; Root can review all teams.
+              </p>
+              <div
+                className="table-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label="Access review table"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Role</th>
+                      <th>Visible records</th>
+                      <th>Can change</th>
+                      <th>Audit access</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      [
+                        "Employee",
+                        "Company + own team",
+                        "Own posts, recognition and expertise; voluntary interest/follows",
+                        "Own actions",
+                      ],
+                      [
+                        "Team lead",
+                        "Company + own team",
+                        "Employee actions + own team goals/opportunities",
+                        "Own actions + team non-financial actions",
+                      ],
+                      [
+                        "Finance",
+                        "Company + own team + budgets",
+                        "Visible goals/opportunities and budgets; own posts/expertise",
+                        "All activity",
+                      ],
+                      [
+                        "Root administrator",
+                        "All teams and budgets",
+                        "All records, people and teams",
+                        "All activity; read-only in this app",
+                      ],
+                    ].map((row) => (
+                      <tr key={row[0]}>
+                        {row.map((cell) => (
+                          <td key={cell}>{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+        <footer className="page-footer">
+          <span className="rail-principles">
+            Contributions, not scores.{" "}
+            {screen === "Allocation"
+              ? "Invitations. Always opt-in."
+              : "Invitations, not assignments."}
+          </span>
+          <span>✳ Northstar · A Commons pilot</span>
+          <span>Fictional data. Thoughtfully connected.</span>
+        </footer>
+      </main>
       {modal && (
         <div
           className="modal-backdrop"
@@ -1968,6 +1957,6 @@ export default function Page() {
           </section>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }
