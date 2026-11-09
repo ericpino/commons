@@ -3,6 +3,10 @@ import { useEffect, useState, useRef, FormEvent } from "react";
 import { reconcileInterest } from "../components/allocation-interest";
 import AllocationCard, { InterestState } from "../components/allocation-card";
 import PeopleDirectory, { PeopleState } from "../components/people-directory";
+import OrganizationDirectory, {
+  OrganizationState,
+} from "../components/organization-directory";
+import { reconcileFollow } from "../components/organization-follow";
 import SkillPicker from "../components/skill-picker";
 import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
@@ -160,7 +164,9 @@ const date = (value: string) =>
 export default function Page() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
     [demo, setDemo] = useState<Person[]>([]),
-    [teamPage, setTeamPage] = useState<string | null>(null),
+    [organizationState, setOrganizationState] =
+      useState<OrganizationState>("loading"),
+    [organizationRetry, setOrganizationRetry] = useState(0),
     [peopleState, setPeopleState] = useState<PeopleState>("loading"),
     [peopleRetry, setPeopleRetry] = useState(0),
     [screen, setScreen] = useState("Home"),
@@ -251,6 +257,8 @@ export default function Page() {
   useEffect(() => {
     if (document.defaultView?.location.hash.startsWith("#people"))
       setScreen("People");
+    if (document.defaultView?.location.hash.startsWith("#organization"))
+      setScreen("Organization");
     Promise.all([
       api<Person[]>("demo-users").then(setDemo),
       refresh().catch(() => null),
@@ -315,6 +323,59 @@ export default function Page() {
       active = false;
     };
   }, [screen, workspace?.user.id, peopleRetry]);
+  useEffect(() => {
+    if (screen !== "Organization" || !workspace?.user.id) return;
+    const persona = workspace.user.id;
+    let active = true;
+    setOrganizationState("loading");
+    api<Workspace>("workspace?archived=true")
+      .then((current) => {
+        if (!active) return;
+        if (current.user.id !== persona) {
+          setOrganizationState("denied");
+          return;
+        }
+        setWorkspace(current);
+        setOrganizationState("ready");
+      })
+      .catch((e) => {
+        if (active)
+          setOrganizationState(
+            [401, 403].includes(e.status) ? "denied" : "error",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [screen, workspace?.user.id, organizationRetry]);
+  async function changeFollow(id: string, desired: boolean) {
+    const persona = workspace?.user.id;
+    setBusy(true);
+    try {
+      await reconcileFollow(
+        desired,
+        async () => {
+          const current = await api<Workspace>("workspace?archived=true");
+          if (personaRef.current !== persona || current.user.id !== persona)
+            throw new Error("Your persona changed. Reopen follow settings.");
+          setWorkspace(current);
+          return current.following.includes(id);
+        },
+        () => api<{ following: boolean }>(`teams/${id}/follow`, "POST"),
+      );
+      const current = await api<Workspace>("workspace?archived=true");
+      if (personaRef.current !== persona || current.user.id !== persona)
+        throw new Error("Your persona changed. Reopen follow settings.");
+      if (current.following.includes(id) !== desired)
+        throw new Error(
+          "Following changed elsewhere. Retry to check the current state.",
+        );
+      setWorkspace(current);
+      setNotice(desired ? "Follow settings saved." : "Team unfollowed.");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function mutate(
     path: string,
     method: string,
@@ -427,7 +488,6 @@ export default function Page() {
     setShowArchived(false);
     setInterestStates({});
     setColleagueStates({});
-    setTeamPage(null);
     try {
       await api("demo/view-as", "POST", { userId });
       await refresh();
@@ -752,7 +812,7 @@ export default function Page() {
             <span className="slash">/</span>
             {screen}
           </div>
-          {screen !== "People" && (
+          {!["People", "Organization"].includes(screen) && (
             <label className="search">
               <Search size={16} />
               <input
@@ -838,7 +898,7 @@ export default function Page() {
               </button>
             ) : null}
           </div>
-          {screen !== "People" && (
+          {!["People", "Organization"].includes(screen) && (
             <div className="module-tools">
               {((isRoot && !["Insights", "Compliance"].includes(screen)) ||
                 (screen === "Budget" && isFinance) ||
@@ -1253,249 +1313,47 @@ export default function Page() {
               }
             />
           )}
-          {screen === "Organization" && !teamPage && (
-            <div className="cards-grid two">
-              {teams
-                .filter(
-                  (t) =>
-                    (showArchived || !t.archived_at) &&
-                    matches(`${t.name} ${t.mission}`),
-                )
-                .map((t) => (
-                  <article className="card team-card" key={t.id}>
-                    <span className="team-symbol">
-                      <Network size={25} />
-                    </span>
-                    <h2>
-                      <button
-                        className="text-button"
-                        onClick={() => setTeamPage(t.id)}
-                      >
-                        {t.name} <ArrowRight size={18} />
-                      </button>
-                    </h2>
-                    {t.archived_at && (
-                      <span className="chip">Archived team</span>
-                    )}
-                    {isRoot && (
-                      <div className="record-controls directory-controls">
-                        {!t.archived_at && (
-                          <button
-                            className="text-button"
-                            onClick={() => {
-                              setEntity(t);
-                              setModal("team");
-                            }}
-                          >
-                            Edit team
-                          </button>
-                        )}
-                        <button
-                          className="text-button"
-                          disabled={busy}
-                          onClick={() =>
-                            requestArchive(
-                              `teams/${t.id}`,
-                              t.name,
-                              t.archived_at,
-                            )
-                          }
-                        >
-                          {t.archived_at ? "Restore" : "Archive"}
-                        </button>
-                      </div>
-                    )}
-                    <p>{t.mission}</p>
-                    <div className="team-people">
-                      {people
-                        .filter(
-                          (p) =>
-                            p.team_id === t.id &&
-                            !p.archived_at &&
-                            p.role !== "root",
-                        )
-                        .map((p) => (
-                          <div key={p.id}>
-                            <span className="avatar small">
-                              {initials(p.name)}
-                            </span>
-                            <span>
-                              {p.name}
-                              <small>
-                                {p.title}
-                                {p.role === "lead" ? " · Team lead" : ""}
-                              </small>
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                    <div className="team-stats">
-                      <span>
-                        {
-                          records.filter(
-                            (r) => r.team_id === t.id && r.kind === "goal",
-                          ).length
-                        }{" "}
-                        shared goals
-                      </span>
-                      <span>
-                        {
-                          records.filter(
-                            (r) => r.team_id === t.id && r.kind === "post",
-                          ).length
-                        }{" "}
-                        visible updates
-                      </span>
-                    </div>
-                    <button
-                      className="secondary full"
-                      disabled={busy || !!t.archived_at}
-                      onClick={() =>
-                        mutate(
-                          `teams/${t.id}/follow`,
-                          "POST",
-                          undefined,
-                          workspace.following.includes(t.id)
-                            ? "Team unfollowed successfully."
-                            : "Team followed successfully.",
-                        )
-                      }
-                    >
-                      {workspace.following.includes(t.id) ? (
-                        <Check size={16} />
-                      ) : (
-                        <Plus size={16} />
-                      )}{" "}
-                      {workspace.following.includes(t.id)
-                        ? "Following · click to unfollow"
-                        : "Follow team"}
-                    </button>
-                    <small>
-                      Following curates your feed; it does not grant private
-                      access.
-                    </small>
-                  </article>
-                ))}
-            </div>
+          {screen === "Organization" && (
+            <OrganizationDirectory
+              key={user.id}
+              teams={teams}
+              people={people}
+              records={workspace.records}
+              userRole={user.role}
+              following={workspace.following}
+              asOf={workspace.asOf}
+              state={organizationState}
+              busy={busy}
+              onRetry={() => setOrganizationRetry((n) => n + 1)}
+              onCreate={() => {
+                setEntity(null);
+                setModal("team");
+              }}
+              onEdit={(t) => {
+                setEntity(t);
+                setModal("team");
+              }}
+              onArchive={(t) =>
+                requestArchive(`teams/${t.id}`, t.name, t.archived_at)
+              }
+              onFollow={changeFollow}
+              onSource={(id) => {
+                const record = workspace.records.find((r) => r.id === id);
+                if (record) {
+                  setSelected(record);
+                  setModal("source");
+                }
+              }}
+              onGoal={(id) => {
+                const record = workspace.records.find((r) => r.id === id);
+                if (record) {
+                  setScreen("Goals");
+                  setSelected(record);
+                  setModal("source");
+                }
+              }}
+            />
           )}
-          {screen === "Organization" &&
-            teamPage &&
-            (() => {
-              const t = teams.find((t) => t.id === teamPage);
-              if (!t) return null;
-              const members = people.filter(
-                (p) =>
-                  p.team_id === t.id && !p.archived_at && p.role !== "root",
-              );
-              const visible = records.filter(
-                (r) => r.team_id === t.id && !r.archived_at,
-              );
-              return (
-                <section className="team-page">
-                  <button
-                    className="secondary"
-                    onClick={() => setTeamPage(null)}
-                  >
-                    ← All teams
-                  </button>
-                  <h2>{t.name}</h2>
-                  <p>{t.mission}</p>
-                  <div className="summary-row">
-                    <div className="card">
-                      <strong>{members.length}</strong>
-                      <p>Team members</p>
-                    </div>
-                    <div className="card">
-                      <strong>
-                        {workspace.engagement.find((e) => e.id === t.id)
-                          ?.followers || 0}
-                      </strong>
-                      <p>Voluntary followers</p>
-                    </div>
-                    <div className="card">
-                      <strong>
-                        {visible.filter((r) => r.kind === "post").length}
-                      </strong>
-                      <p>Updates visible to you</p>
-                    </div>
-                  </div>
-                  <h3>Team structure</h3>
-                  <div className="card">
-                    {members.map((p) => (
-                      <p key={p.id}>
-                        <strong>{p.name}</strong> · {p.title}
-                        {p.role === "lead" ? " · Team lead" : ""}
-                      </p>
-                    ))}
-                  </div>
-                  <h3>Posts & recognition</h3>
-                  <div className="cards-grid two">
-                    {visible
-                      .filter((r) => ["post", "recognition"].includes(r.kind))
-                      .map((r) => (
-                        <article className="card" key={r.id}>
-                          <h3>{r.title}</h3>
-                          <p>{r.body}</p>
-                          <small>
-                            {person(r.owner_id)?.name} · {date(r.updated_at)}
-                          </small>
-                          {source(r)}
-                        </article>
-                      ))}
-                  </div>
-                  <h3>Shared work</h3>
-                  <div className="cards-grid two">
-                    {visible
-                      .filter((r) => ["goal", "allocation"].includes(r.kind))
-                      .map((r) => (
-                        <article className="card" key={r.id}>
-                          <span className="chip">
-                            {r.kind === "goal" ? "Goal" : "Opportunity"}
-                          </span>
-                          <h3>{r.title}</h3>
-                          <p>{r.body}</p>
-                          {r.kind === "goal" ? (
-                            <p>
-                              {r.data.progress}% · {r.data.completed} of{" "}
-                              {r.data.total} {r.data.unit}
-                            </p>
-                          ) : (
-                            <p>
-                              Typical contribution: {r.data.hours} hours/week ·
-                              opt in from Allocation
-                            </p>
-                          )}
-                          {source(r)}
-                        </article>
-                      ))}
-                  </div>
-                  <h3>Engagement</h3>
-                  <p>
-                    Following is voluntary and curates your feed. Interest in
-                    opportunities is visible to their owner, never a performance
-                    ranking. Private posts remain limited to your role and team.
-                  </p>
-                  <button
-                    className="secondary"
-                    disabled={busy || !!t.archived_at}
-                    onClick={() =>
-                      mutate(
-                        `teams/${t.id}/follow`,
-                        "POST",
-                        undefined,
-                        workspace.following.includes(t.id)
-                          ? "Team unfollowed successfully."
-                          : "Team followed successfully.",
-                      )
-                    }
-                  >
-                    {workspace.following.includes(t.id)
-                      ? "Following · click to unfollow"
-                      : "Follow team"}
-                  </button>
-                </section>
-              );
-            })()}
           {screen === "Goals" && (
             <div className="cards-grid two">
               {filtered("goal").map((r) => (
