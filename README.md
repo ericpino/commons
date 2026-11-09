@@ -155,7 +155,7 @@ docker compose -f docker-compose.yml up --build -d
     LETSENCRYPT_EMAIL="eric@posible.net" ./scripts/init-letsencrypt.sh
     ```
     This starts `db`, `api`, `web`, `nginx` (using [`deploy/nginx/commons.ericpino.com.conf`](deploy/nginx/commons.ericpino.com.conf)), obtains the certificate for `commons.ericpino.com`, and runs automatic 12-hour renewals.
-  - **Option B — Host Nginx + Certbot on Ubuntu 24.04:** Copy [`deploy/nginx/host-nginx.conf`](deploy/nginx/host-nginx.conf) to `/etc/nginx/sites-available/commons.ericpino.com`, enable it, and run `sudo certbot --nginx -d commons.ericpino.com`.
+  - **Option B — Host Nginx + Certbot on Ubuntu 24.04 (`scripts/setup-host-nginx.sh`):** If you already have Nginx running on the host, run `./scripts/setup-host-nginx.sh` (or manually copy [`deploy/nginx/host-nginx.conf`](deploy/nginx/host-nginx.conf) to `/etc/nginx/sites-available/commons.ericpino.com`, enable it, and run `sudo certbot --nginx -d commons.ericpino.com`).
 - **Persistence & seeding:** PostgreSQL data persists across restarts in the `commons_data` volume. To load the clean 5-team Northstar demo dataset after initial startup:
   ```sh
   docker compose exec api npm run seed:demo

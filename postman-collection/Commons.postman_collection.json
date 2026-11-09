@@ -73,12 +73,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "health"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
             },
             "description": "Public database health check."
           },
@@ -107,12 +103,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/demo-users",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "demo-users"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["demo-users"]
             },
             "description": "Public persona list in the current implementation."
           },
@@ -145,12 +137,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "login"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
             },
             "description": "Send first. Postman stores commons_session from Set-Cookie in its cookie jar. Default Root permits exploring every CRUD folder. Change loginUserId to maya, alex, jordan or another active persona. No Bearer token is returned by the current API.",
             "body": {
@@ -194,12 +182,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/workspace",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "workspace"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["workspace"]
             },
             "description": ""
           },
@@ -228,12 +212,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/workspace?archived=true",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "workspace"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["workspace"],
               "query": [
                 {
                   "key": "archived",
@@ -268,12 +248,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/skills",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "skills"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["skills"]
             },
             "description": "Authenticated catalog response: { skills: [{ id, name }] }. Use canonical skill names when saving."
           },
@@ -306,12 +282,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/profile",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "profile"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["profile"]
             },
             "description": "Replaces the signed-in person\u2019s skill list. Maximum 12 catalog skills. Use {\"skills\": []} to clear. No target person ID is accepted.",
             "body": {
@@ -359,12 +331,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records"]
             },
             "description": "",
             "body": {
@@ -407,13 +375,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{postId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{postId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{postId}}"]
             },
             "description": ""
           },
@@ -455,13 +418,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{postId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{postId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{postId}}"]
             },
             "description": "",
             "body": {
@@ -508,14 +466,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{postId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{postId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{postId}}", "archive"]
             },
             "description": "Soft delete; audit history remains. Does not permanently delete the record."
           },
@@ -553,14 +505,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{postId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{postId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{postId}}", "restore"]
             },
             "description": ""
           },
@@ -608,12 +554,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records"]
             },
             "description": "",
             "body": {
@@ -656,13 +598,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{recognitionId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{recognitionId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{recognitionId}}"]
             },
             "description": ""
           },
@@ -704,13 +641,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{recognitionId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{recognitionId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{recognitionId}}"]
             },
             "description": "",
             "body": {
@@ -757,14 +689,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{recognitionId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{recognitionId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{recognitionId}}", "archive"]
             },
             "description": "Soft delete; audit history remains. Does not permanently delete the record."
           },
@@ -802,14 +728,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{recognitionId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{recognitionId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{recognitionId}}", "restore"]
             },
             "description": ""
           },
@@ -857,12 +777,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records"]
             },
             "description": "",
             "body": {
@@ -905,13 +821,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{goalId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{goalId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{goalId}}"]
             },
             "description": ""
           },
@@ -953,13 +864,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{goalId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{goalId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{goalId}}"]
             },
             "description": "",
             "body": {
@@ -1006,14 +912,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{goalId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{goalId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{goalId}}", "archive"]
             },
             "description": "Soft delete; audit history remains. Does not permanently delete the record."
           },
@@ -1051,14 +951,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{goalId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{goalId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{goalId}}", "restore"]
             },
             "description": ""
           },
@@ -1106,12 +1000,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records"]
             },
             "description": "",
             "body": {
@@ -1154,13 +1044,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{allocationId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{allocationId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{allocationId}}"]
             },
             "description": ""
           },
@@ -1202,13 +1087,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{allocationId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{allocationId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{allocationId}}"]
             },
             "description": "",
             "body": {
@@ -1255,14 +1135,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{allocationId}}/join",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{allocationId}}",
-                "join"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{allocationId}}", "join"]
             },
             "description": "Toggle: first send joins, next send withdraws. The API acts on the signed-in user only."
           },
@@ -1300,14 +1174,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{allocationId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{allocationId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{allocationId}}", "archive"]
             },
             "description": "Soft delete; audit history remains. Does not permanently delete the record."
           },
@@ -1345,14 +1213,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{allocationId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{allocationId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{allocationId}}", "restore"]
             },
             "description": ""
           },
@@ -1400,12 +1262,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records"]
             },
             "description": "",
             "body": {
@@ -1448,13 +1306,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{budgetId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{budgetId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{budgetId}}"]
             },
             "description": ""
           },
@@ -1496,13 +1349,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{budgetId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{budgetId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{budgetId}}"]
             },
             "description": "",
             "body": {
@@ -1549,14 +1397,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{budgetId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{budgetId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{budgetId}}", "archive"]
             },
             "description": "Soft delete; audit history remains. Does not permanently delete the record."
           },
@@ -1594,14 +1436,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/records/{{budgetId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "records",
-                "{{budgetId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["records", "{{budgetId}}", "restore"]
             },
             "description": ""
           },
@@ -1649,12 +1485,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/people",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "people"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["people"]
             },
             "description": "",
             "body": {
@@ -1701,13 +1533,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/people/{{personId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "people",
-                "{{personId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["people", "{{personId}}"]
             },
             "description": "Root only. Role/team changes revoke the affected person\u2019s sessions. Skills are omitted here to preserve owner-managed expertise; the current API also accepts skills under Root\u2019s existing exception.",
             "body": {
@@ -1754,14 +1581,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/people/{{personId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "people",
-                "{{personId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["people", "{{personId}}", "archive"]
             },
             "description": ""
           },
@@ -1799,14 +1620,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/people/{{personId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "people",
-                "{{personId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["people", "{{personId}}", "restore"]
             },
             "description": ""
           },
@@ -1854,12 +1669,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/teams",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "teams"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["teams"]
             },
             "description": "",
             "body": {
@@ -1906,13 +1717,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/teams/{{createdTeamId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "teams",
-                "{{createdTeamId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", "{{createdTeamId}}"]
             },
             "description": "",
             "body": {
@@ -1959,14 +1765,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/teams/{{teamId}}/follow",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "teams",
-                "{{teamId}}",
-                "follow"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", "{{teamId}}", "follow"]
             },
             "description": "Any signed-in user can toggle their own follow relation. Does not grant private record access."
           },
@@ -1995,14 +1795,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/teams/{{createdTeamId}}/archive",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "teams",
-                "{{createdTeamId}}",
-                "archive"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", "{{createdTeamId}}", "archive"]
             },
             "description": "Root only. Returns 409 while the team has active people or active records. This folder creates an empty team."
           },
@@ -2040,14 +1834,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/teams/{{createdTeamId}}/restore",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "teams",
-                "{{createdTeamId}}",
-                "restore"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", "{{createdTeamId}}", "restore"]
             },
             "description": ""
           },
@@ -2091,12 +1879,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/insights",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "insights"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["insights"]
             },
             "description": "Five answers for employees/leads, six for Finance/Root. Each answer includes coverage, arithmetic and source records."
           },
@@ -2125,12 +1909,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/audit",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "audit"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["audit"]
             },
             "description": "Read-only endpoint. Current implementation returns role-filtered audit history with readable record labels; audit permissions have known findings in the security review. No audit update/delete endpoint exists."
           },
@@ -2169,13 +1949,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/demo/view-as",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "demo",
-                "view-as"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["demo", "view-as"]
             },
             "description": "Requires an existing session and DEMO_MODE=true. Rotates the session cookie. Default target is Alex; subsequent requests use Alex\u2019s permissions. Log in as Root again for administration.",
             "body": {
@@ -2213,12 +1988,8 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "logout"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["logout"]
             },
             "description": "Revokes the current session and clears its cookie. Run after you finish."
           },
