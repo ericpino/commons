@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { reconcileInterest } from "../components/allocation-interest";
 import AllocationCard, { InterestState } from "../components/allocation-card";
+import PeopleDirectory from "../components/people-directory";
 import SkillPicker from "../components/skill-picker";
 import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
@@ -719,15 +720,17 @@ export default function Page() {
             <span className="slash">/</span>
             {screen}
           </div>
-          <label className="search">
-            <Search size={16} />
-            <input
-              aria-label="Search current module"
-              placeholder={`Search ${screen.toLowerCase()}…`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
+          {screen !== "People" && (
+            <label className="search">
+              <Search size={16} />
+              <input
+                aria-label="Search current module"
+                placeholder={`Search ${screen.toLowerCase()}…`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+          )}
           {workspace.demoMode && (
             <label className="persona-control">
               View as
@@ -803,39 +806,41 @@ export default function Page() {
               </button>
             ) : null}
           </div>
-          <div className="module-tools">
-            {((isRoot && !["Insights", "Compliance"].includes(screen)) ||
-              (screen === "Budget" && isFinance) ||
-              (["Goals", "Allocation"].includes(screen) &&
-                user.role !== "employee") ||
-              (screen === "Home" &&
-                records.some((r) => r.owner_id === user.id))) && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={showArchived}
-                  onChange={(e) => setShowArchived(e.target.checked)}
-                />{" "}
-                Include archived{" "}
-                {["People", "Organization"].includes(screen)
-                  ? "entries"
-                  : "records"}
-              </label>
-            )}
-            {isRoot && ["People", "Organization"].includes(screen) && (
-              <button
-                className="primary"
-                onClick={() => {
-                  setEntity(null);
-                  setModal(screen === "People" ? "person" : "team");
-                }}
-              >
-                <Plus size={16} />
-                Create {screen === "People" ? "person" : "team"}
-              </button>
-            )}
-            {isRoot && <span className="chip">ROOT · ALL TEAMS</span>}
-          </div>
+          {screen !== "People" && (
+            <div className="module-tools">
+              {((isRoot && !["Insights", "Compliance"].includes(screen)) ||
+                (screen === "Budget" && isFinance) ||
+                (["Goals", "Allocation"].includes(screen) &&
+                  user.role !== "employee") ||
+                (screen === "Home" &&
+                  records.some((r) => r.owner_id === user.id))) && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showArchived}
+                    onChange={(e) => setShowArchived(e.target.checked)}
+                  />{" "}
+                  Include archived{" "}
+                  {["People", "Organization"].includes(screen)
+                    ? "entries"
+                    : "records"}
+                </label>
+              )}
+              {isRoot && ["People", "Organization"].includes(screen) && (
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setEntity(null);
+                    setModal(screen === "People" ? "person" : "team");
+                  }}
+                >
+                  <Plus size={16} />
+                  Create {screen === "People" ? "person" : "team"}
+                </button>
+              )}
+              {isRoot && <span className="chip">ROOT · ALL TEAMS</span>}
+            </div>
+          )}
           {error && (
             <div className="error" role="alert">
               {error}
@@ -1041,96 +1046,31 @@ export default function Page() {
             </>
           )}
           {screen === "People" && (
-            <>
-              <div className="section-title">
-                <span>
-                  {
-                    people.filter(
-                      (p) =>
-                        p.role !== "root" && (showArchived || !p.archived_at),
-                    ).length
-                  }{" "}
-                  colleagues · Expertise is self-listed
-                </span>
-                <button
-                  className="secondary"
-                  onClick={() => setModal("skills")}
-                >
-                  Edit my expertise
-                </button>
-              </div>
-              <div className="cards-grid">
-                {people
-                  .filter(
-                    (p) =>
-                      p.role !== "root" &&
-                      (showArchived || !p.archived_at) &&
-                      matches(`${p.name} ${p.skills.join(" ")} ${p.title}`),
-                  )
-                  .map((p) => (
-                    <article className="card person-card" key={p.id}>
-                      <span className="avatar large">{initials(p.name)}</span>
-                      <h3>{p.name}</h3>
-                      <p>
-                        {p.title}
-                        <br />
-                        {team(p.team_id)}
-                      </p>
-                      <div className="skills">
-                        {p.skills.map((s) => (
-                          <span className="chip" key={s}>
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                      <small>
-                        {p.archived_at
-                          ? "Archived person"
-                          : "Self-listed expertise · No ratings"}
-                      </small>
-                      {isRoot && (
-                        <div className="record-controls directory-controls">
-                          {!p.archived_at && (
-                            <button
-                              className="text-button"
-                              onClick={() => {
-                                setEntity(p);
-                                setModal("person");
-                              }}
-                            >
-                              Edit person
-                            </button>
-                          )}
-                          <button
-                            className="text-button"
-                            disabled={p.id === user.id || busy}
-                            onClick={() =>
-                              requestArchive(
-                                `people/${p.id}`,
-                                p.name,
-                                p.archived_at,
-                              )
-                            }
-                          >
-                            {p.archived_at ? "Restore" : "Archive"}
-                          </button>
-                        </div>
-                      )}
-                      <button
-                        className="text-button"
-                        disabled={p.id === user.id || !!p.archived_at}
-                        onClick={() => {
-                          setModal("recognition");
-                          setRecipient(p.id);
-                        }}
-                      >
-                        <Heart size={15} />
-                        Recognize a contribution
-                      </button>
-                    </article>
-                  ))}
-              </div>
-            </>
+            <PeopleDirectory
+              key={user.id}
+              people={people}
+              teams={teams}
+              user={user}
+              state="ready"
+              busy={busy}
+              onRetry={() => void refresh()}
+              onExpertise={() => setModal("skills")}
+              onCreate={() => {
+                setEntity(null);
+                setModal("person");
+              }}
+              onEdit={(p) => {
+                setEntity(p);
+                setModal("person");
+              }}
+              onArchive={(p) =>
+                requestArchive(`people/${p.id}`, p.name, p.archived_at)
+              }
+              onRecognize={(p) => {
+                setRecipient(p.id);
+                setModal("recognition");
+              }}
+            />
           )}
           {screen === "Organization" && !teamPage && (
             <div className="cards-grid two">
