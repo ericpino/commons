@@ -36,7 +36,7 @@ For a shared deployment, set `DEMO_PASSWORD`, `POSTGRES_PASSWORD`, `WEB_ORIGIN` 
 | ------------ | -------------------------------------------------------------------------------------------------------------------- |
 | Home         | Publish persistent updates and recognition; company/team visibility; Following filter makes shared work discoverable |
 | People       | Search colleagues and self-listed skills; edit own expertise; recognize contributions without ratings                |
-| Organization | Browse team mission/members and follow teams; makes structure and shared purpose visible                             |
+| Organization | Search teams/roles, inspect dated shared work and visible activity, and manage follows                             |
 | Goals        | Create goals, update progress with evidence; links progress to an accountable record                                 |
 | Allocation   | Publish opportunities, plan available/needed hours, opt in/out; exposes capacity gaps without assigning people       |
 | Budget       | Finance-only planned/actual spending and source notes; makes drivers traceable                                       |
@@ -112,6 +112,10 @@ Policy tests cover visibility, cross-team management and financial validation. H
 GitHub Actions runs lint, unit tests, production builds and PostgreSQL integration checks on every push and pull request. It becomes active when the repository is pushed to GitHub.
 
 ## Assumptions and limits
+
+**Organization UI assumptions:** role groups use returned job titles (permission roles only when no title is listed); no manager relation is inferred. Active allocation records are treated as open invitations because there is no separate invitation status. Activity facts count only active records returned to the current persona and link to their team-page source lists. Dates use the browser timezone and the workspace `asOf` snapshot. Root-only administration controls mirror the existing server role guard; the API has no separate capability flags. All checked roles receive the same team-directory scope, so no role-specific scope label is shown. The existing Root demo-account exclusion from member lists is presentation only; archive dependency checks still include all returned people. Section rendering errors are isolated, but all sections share the existing workspace request.
+
+**Approved Organization scope:** P3 is a follow-only popup. Notification preferences are not stored by the API, so alert checkboxes are omitted rather than simulated. P2 customization is skipped. No browser-local preference store, API/schema/policy change, or dependency was added. Follow retries read the current state before calling the toggle endpoint; this reduces accidental reversal but does not make concurrent writes atomic. See [Organization UX validation](docs/ORGANIZATION_UX_VALIDATION.md).
 
 **People UI assumptions:** directory search and team/skill filters operate only on the returned workspace data, in alphabetical order. The returned Root role determines person administration controls, matching the existing server guard; no separate capability flags exist. All three checked roles receive the same directory scope, so no misleading role-specific scope chip is shown. The existing exclusion of the fictional Root demo account is presentation only, not authorization. Profiles use hash links and existing identity, self-listed skills, shared work and recognition records; no biography fields were invented. Only existing opportunities are shown; no communities API exists. Dates use the browser timezone. Optional team grouping is omitted.
 
