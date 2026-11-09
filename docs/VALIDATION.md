@@ -57,3 +57,7 @@ To rebuild/restart with the verified ports:
 ```sh
 DB_PORT=55433 API_HOST_PORT=4101 WEB_PORT=3100 WEB_ORIGIN=http://localhost:3100 docker compose up --build -d
 ```
+
+## Skills catalog follow-up
+
+Verified authenticated GET catalog access, case-insensitive normalization, deduplication, unknown/null/over-limit rejection through both profile and Root APIs, and clearing/restoring expertise. Direct PostgreSQL writes rejected unknown user skills and case-duplicate catalog names. All three HTTP integration suites and five policy tests passed. Lint, TypeScript and Docker production builds passed. Browser verification covered searching, keyboard selection, saving, reopening persisted selections, removing a selection and saving again; original demo expertise was restored afterward.

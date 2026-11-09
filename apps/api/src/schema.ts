@@ -25,4 +25,22 @@ INSERT INTO records(id,kind,title,body,team_id,visibility,owner_id,data) VALUES
 ('allocation-guides','allocation','Share your customer expertise','Help turn customer questions into practical guides.','operations','company','jordan','{"hours":4,"capacity":16,"needed":12}'),
 ('budget-product','budget','Product pilot budget','Design research, infrastructure and pilot operations.','product','finance','jordan','{"planned":18000,"actual":11200,"driver":"Research: 4200; infrastructure: 3000; pilot operations: 4000","currency":"USD"}'),
 ('budget-operations','budget','Customer enablement budget','Knowledge base and onboarding materials.','operations','finance','jordan','{"planned":10000,"actual":6400,"driver":"Content: 4000; tooling: 2400","currency":"USD"}') ON CONFLICT DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS skills(id bigserial PRIMARY KEY,name text NOT NULL UNIQUE CHECK(name=btrim(name) AND length(name) BETWEEN 1 AND 40));
+CREATE UNIQUE INDEX IF NOT EXISTS skills_name_normalized ON skills(lower(name));
+INSERT INTO skills(name) SELECT name FROM unnest(ARRAY['Accessibility','Architecture','AWS','Communication','Customer research','Customer success','Data analysis','Docker','Financial planning','GraphQL','JavaScript','Leadership','NestJS','Next.js','Node.js','Onboarding','Operations','PostgreSQL','Product design','Product management','Project management','Python','React','Research','SQL','Testing','TypeScript','UX design','Verification','Workspace administration']) AS name ON CONFLICT DO NOTHING;
+-- Preserve existing expertise once, choosing one spelling per case-insensitive name.
+INSERT INTO skills(name) SELECT DISTINCT ON (lower(btrim(value))) btrim(value) FROM users CROSS JOIN LATERAL unnest(users.skills) AS value WHERE length(btrim(value)) BETWEEN 1 AND 40 ORDER BY lower(btrim(value)),btrim(value) ON CONFLICT DO NOTHING;
+UPDATE users SET skills=ARRAY(SELECT DISTINCT s.name FROM unnest(users.skills) AS value JOIN skills s ON lower(s.name)=lower(btrim(value)) ORDER BY s.name);
+-- Guard direct database writes as well as API writes. The catalog is append-only.
+CREATE OR REPLACE FUNCTION validate_user_skills() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF cardinality(NEW.skills)>12 OR EXISTS(SELECT 1 FROM unnest(NEW.skills) value WHERE value IS NULL OR NOT EXISTS(SELECT 1 FROM skills WHERE name=value)) THEN
+    RAISE EXCEPTION 'Skills must be selected from the catalog (maximum 12)' USING ERRCODE='23514';
+  END IF;
+  NEW.skills := ARRAY(SELECT DISTINCT value FROM unnest(NEW.skills) value ORDER BY value);
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS users_skills_catalog ON users;
+CREATE TRIGGER users_skills_catalog BEFORE INSERT OR UPDATE OF skills ON users FOR EACH ROW EXECUTE FUNCTION validate_user_skills();
 `;

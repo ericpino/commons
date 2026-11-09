@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, FormEvent } from "react";
+import SkillPicker from "../components/skill-picker";
 import RecordFields from "../components/record-fields";
 import {
   Home,
@@ -297,10 +298,7 @@ export default function Page() {
         entity ? "PATCH" : "POST",
         {
           ...f,
-          skills: String(f.skills || "")
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean),
+          skills: JSON.parse(String(f.skills || "[]")),
         },
         `Person ${entity ? "updated" : "created"} successfully.`,
       );
@@ -313,10 +311,7 @@ export default function Page() {
       );
     if (modal === "skills")
       return mutate("profile", "PATCH", {
-        skills: String(f.skills)
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        skills: JSON.parse(String(f.skills || "[]")),
       });
     if (modal === "edit" && selected)
       return mutate(`records/${selected.id}`, "PATCH", f);
@@ -1407,7 +1402,7 @@ export default function Page() {
                   : modal === "source"
                     ? selected?.title
                     : modal === "skills"
-                      ? "Your expertise, in your words."
+                      ? "Your expertise, shared consistently."
                       : modal === "edit"
                         ? `Update ${selected?.kind}`
                         : modal === "recognition"
@@ -1470,15 +1465,7 @@ export default function Page() {
                       List expertise you’re happy to share. There are no
                       ratings.
                     </p>
-                    <label>
-                      Skills, separated by commas
-                      <input
-                        autoFocus
-                        name="skills"
-                        defaultValue={user.skills.join(", ")}
-                        maxLength={480}
-                      />
-                    </label>
+                    <SkillPicker initialSkills={user.skills} />
                   </>
                 ) : modal === "person" ? (
                   <>
@@ -1530,14 +1517,9 @@ export default function Page() {
                           ))}
                       </select>
                     </label>
-                    <label>
-                      Skills, separated by commas
-                      <input
-                        name="skills"
-                        maxLength={480}
-                        defaultValue={(entity as Person)?.skills?.join(", ")}
-                      />
-                    </label>
+                    <SkillPicker
+                      initialSkills={(entity as Person)?.skills || []}
+                    />
                     <p>
                       Root can administer all profiles. Skills are descriptions,
                       never proficiency ratings. Role or team changes revoke the

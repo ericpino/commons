@@ -27,3 +27,5 @@ See `docs/VALIDATION.md` for executed checks and remaining limits. Tests and bui
 ## CRUD follow-up
 
 Codex implemented complete record editing/archival/restoration, root directory administration, action success toasts, and a combined development launcher. Verification was expanded to every record kind and directory lifecycle, employee ownership restrictions, root cross-team access, session revocation, archived-source exclusion and a deliberately failed audit insert to check rollback. Browser checks exercised goal create/edit/archive/restore and the corresponding notifications. No candidate manual review is implied by these tool-executed checks.
+
+Added a database-backed skills catalog, authenticated GET endpoint, canonical-name validation on profile and Root writes, and a shared searchable skill picker. Preserved existing expertise during migration. Browser testing caught a dropdown layout shift during Save; suggestions now overlay without shifting the form and close upon selection. Verified selection persistence and removal, API validation, database guards and existing integration suites.

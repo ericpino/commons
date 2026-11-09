@@ -1432,3 +1432,47 @@ dd {
     margin: 0 0 20px;
   }
 }
+
+.skill-picker {
+  position: relative;
+  margin: 16px 0;
+}
+.skill-picker > label {
+  font-weight: 600;
+}
+.skill-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.skill-chips button {
+  border: 1px solid #b8cbbf;
+  border-radius: 20px;
+  background: #eef5ef;
+  color: #224d38;
+  padding: 6px 12px;
+}
+.skill-options {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: white;
+  list-style: none;
+  padding: 4px;
+  margin: 4px 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #b8cbbf;
+  border-radius: 8px;
+}
+.skill-options li {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.skill-options li[aria-selected="true"],
+.skill-options li:hover {
+  background: #eef5ef;
+  color: #224d38;
+}

@@ -120,3 +120,9 @@ This is a pilot, not a production security claim. Before production: SSO, tenant
 ## Agent skills
 
 Matt Pocock’s published engineering and productivity skills are installed locally in `.agents/skills/`. See [usage, setup, and provenance](docs/SKILLS.md). Open Commons as your Codex project to discover them.
+
+### Shared expertise catalog
+
+`GET /api/skills` through the frontend (`GET /skills` on NestJS) requires an authenticated session and returns `{ skills: [{ id, name }] }`, sorted by name. The expertise and Root person forms fetch this catalog and filter suggestions locally, with keyboard selection and removable skill chips. Only selected suggestions are submitted.
+
+The PostgreSQL `skills` table supplies canonical names and enforces case-insensitive uniqueness. Existing expertise is imported without discarding names; casing and duplicate entries are normalized. Both profile and Root person writes validate against the catalog, accept case-insensitive matches, reject unknown values, and store canonical names. A database trigger also rejects unknown names and more than 12 selections on user writes. The existing `users.skills` array remains compatible with directory search and audit history. New catalog entries are managed through database migrations for this pilot; no free-text creation is exposed in the picker.

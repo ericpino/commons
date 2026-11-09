@@ -410,10 +410,8 @@ class Api {
   }
   @Patch("profile") async profile(@Req() req: Request, @Body() b: any) {
     const u = await this.user(req);
-    if (!Array.isArray(b.skills) || b.skills.length > 12)
-      throw new BadRequestException("Maximum 12 skills");
-    const skills = [...new Set(b.skills.map((s: unknown) => text(s, 40)))];
     return this.db.transaction(async (c) => {
+      const skills = await this.skills(c, b.skills);
       await c.query("UPDATE users SET skills=$1 WHERE id=$2", [skills, u.id]);
       await this.audit(c, u, "update own expertise", u.id, u.team_id, {
         before: { skills: u.skills },
@@ -454,10 +452,27 @@ class Api {
     if (u.role !== "root") throw new ForbiddenException("Root access required");
     return u;
   }
-  skills(value: unknown) {
+  @Get("skills") async skillCatalog(@Req() req: Request) {
+    await this.user(req);
+    return {
+      skills: (
+        await this.db.pool.query(
+          "SELECT id::text,name FROM skills ORDER BY lower(name),id",
+        )
+      ).rows,
+    };
+  }
+  async skills(c: PoolClient, value: unknown): Promise<string[]> {
     if (!Array.isArray(value) || value.length > 12)
       throw new BadRequestException("Maximum 12 skills");
-    return [...new Set(value.map((s) => text(s, 40)))];
+    const requested = [...new Set(value.map((s) => text(s, 40).toLowerCase()))];
+    const { rows } = await c.query(
+      "SELECT name FROM skills WHERE lower(name)=ANY($1::text[]) ORDER BY name",
+      [requested],
+    );
+    if (rows.length !== requested.length)
+      throw new BadRequestException("Choose skills from the skills catalog");
+    return rows.map((row) => row.name);
   }
   @Post("people") async createPerson(@Req() req: Request, @Body() b: any) {
     return this.savePerson(req, b);
@@ -489,7 +504,7 @@ class Api {
         throw new BadRequestException(
           "Use another root account to change your own role",
         );
-      const skills = this.skills(b.skills ?? old?.skills ?? []);
+      const skills = await this.skills(c, b.skills ?? old?.skills ?? []);
       await this.activeTeam(c, team);
       const key = id || randomUUID();
       const { rows } = await c.query(

@@ -167,12 +167,12 @@ await call("profile", {
   body: { skills: ["Testing", "Research"] },
 });
 assert.deepEqual((await get("workspace", maya)).user.skills, [
-  "Testing",
   "Research",
+  "Testing",
 ]);
 assert.notDeepEqual((await get("workspace", sam)).user.skills, [
-  "Testing",
   "Research",
+  "Testing",
 ]);
 await call("teams/operations/follow", { cookie: maya, method: "POST" });
 assert.equal(
