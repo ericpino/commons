@@ -49,6 +49,7 @@ For a new schema change: `npm run db:migrate:dev -- --name descriptive_name` aga
 - [AI build log](docs/AI_BUILD_LOG.md)
 - [15-minute demo and code walkthrough](docs/WALKTHROUGH.md)
 - [Deployment and submission checklist](docs/DEPLOYMENT.md)
+- [Postman API collection and environment](postman-collection/README.md)
 
 ## Why each module exists
 
@@ -56,7 +57,7 @@ For a new schema change: `npm run db:migrate:dev -- --name descriptive_name` aga
 | ------------ | -------------------------------------------------------------------------------------------------------------------- |
 | Home         | Publish persistent updates and recognition; company/team visibility; Following filter makes shared work discoverable |
 | People       | Search colleagues and self-listed skills; edit own expertise; recognize contributions without ratings                |
-| Organization | Search teams/roles, inspect dated shared work and visible activity, and manage follows                             |
+| Organization | Search teams/roles, inspect dated shared work and visible activity, and manage follows                               |
 | Goals        | Create goals, update progress with evidence; links progress to an accountable record                                 |
 | Allocation   | Publish opportunities, plan available/needed hours, opt in/out; exposes capacity gaps without assigning people       |
 | Budget       | Finance-only planned/actual spending and source notes; makes drivers traceable                                       |
@@ -180,54 +181,20 @@ Both `.github/workflows/ci.yml` and `.gitlab-ci.yml` enforce a four-stage verifi
 | `test`      | API & Web unit tests (`npm test`), production build (`npm run build`), PostgreSQL 16 integration suites, and demo seed readiness |
 | `docker`    | Validates `docker-compose.yml` (`docker compose config -q`) and builds both `--target api` and `--target web` container images   |
 
-## Deployment and CI/CD
+## API reference and Postman collection
 
-### 1. Docker Compose host deployment
+A complete Postman collection covering all **25 API routes** (46 example requests) is included under [`postman-collection/`](postman-collection/README.md):
 
-Provision a host with Docker and Docker Compose (`docker-compose.yml` / `compose.yaml`):
+- **Collection:** [`postman-collection/Commons.postman_collection.json`](postman-collection/Commons.postman_collection.json)
+- **Local Environment:** [`postman-collection/Commons.local.postman_environment.json`](postman-collection/Commons.local.postman_environment.json)
+- **Usage & Route Guide:** [`postman-collection/README.md`](postman-collection/README.md)
 
-```sh
-export POSTGRES_PASSWORD="<strong-random-db-password>"
-export DEMO_PASSWORD="<strong-random-demo-password>"
-export WEB_ORIGIN="https://your-domain.example.com"
-export COOKIE_SECURE="true"
-export DEMO_MODE="true" # Set to "false" outside demo environments
+### Quick start in Postman
 
-docker compose -f docker-compose.yml up --build -d
-```
-
-- **Network exposure:** `db` (`5432`) and `api` (`4000`) bind only to host loopback (`127.0.0.1`). Only `web` (`3000`) is published for reverse-proxy ingress, and Next.js proxies `/api/*` requests to `http://api:4000` over the internal Docker network.
-- **HTTPS termination:** Place a reverse proxy (Caddy, Nginx, Cloudflare Tunnel, or load balancer) in front of port `3000`, forwarding `/api` paths and `Cookie` / `Set-Cookie` headers unchanged.
-- **Persistence & seeding:** PostgreSQL data persists across restarts in the `commons_data` volume. To load the clean 5-team Northstar demo dataset after initial startup:
-  ```sh
-  docker compose exec api npm run seed:demo
-  ```
-- **Health verification:** Check `GET /api/health` (through the web origin) or `http://127.0.0.1:4000/health` (on the host) for `{ "status": "ok" }`.
-
-### 2. Multi-stage Dockerfile & separate service hosting
-
-The root `Dockerfile` builds both services from shared workspace dependencies using multi-stage targets (per-service Dockerfiles are also available at `apps/api/Dockerfile` and `apps/web/Dockerfile`):
-
-```sh
-# Build the NestJS API image
-docker build --target api -t commons-api:latest .
-
-# Build the Next.js Web image (API_URL is compiled into Next.js rewrites at build time)
-docker build --target web --build-arg API_URL=https://api.internal.example.com -t commons-web:latest .
-```
-
-When deploying `api` and `web` as separate container services, pass `DATABASE_URL`, `DEMO_PASSWORD`, `WEB_ORIGIN`, `COOKIE_SECURE=true`, and `DEMO_MODE` to the `api` runtime environment. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment and submission checklist.
-
-### 3. CI/CD pipelines (GitHub Actions & GitLab CI)
-
-Both `.github/workflows/ci.yml` and `.gitlab-ci.yml` enforce a four-stage verification pipeline:
-
-| Stage / Job | Checks performed                                                                                                                 |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `lint`      | `npm ci` and `npm run lint` (ESLint across `apps/` and `scripts/` + TypeScript `--noEmit` across workspaces)                     |
-| `semgrep`   | Static application security testing (SAST) via `semgrep/semgrep:latest` (`semgrep scan --config auto --error`)                   |
-| `test`      | API & Web unit tests (`npm test`), production build (`npm run build`), PostgreSQL 16 integration suites, and demo seed readiness |
-| `docker`    | Validates `docker-compose.yml` (`docker compose config -q`) and builds both `--target api` and `--target web` container images   |
+1. Import both JSON files into Postman and select the **Commons Local** environment (`baseUrl` defaults to `http://localhost:3100/api` for the Docker frontend proxy; switch to `http://localhost:4101` for direct NestJS or `http://localhost:3102/api` for the local dev runner).
+2. Run **01 · Start here → Login — establish session cookie** first. Postman's cookie jar automatically stores the `HttpOnly` `commons_session` cookie for subsequent requests.
+3. The collection covers the full lifecycle across all five record kinds (`post`, `recognition`, `goal`, `allocation`, `budget`), people and team administration, skills catalog (`GET /skills`) and profile expertise updates, opportunity interest toggles (`POST /records/:id/join`), team follows (`POST /teams/:id/follow`), deterministic Insights (`GET /insights`), transactional audit logs (`GET /audit`), and demo persona switching (`POST /demo/view-as`).
+4. Each `Create` request captures its new record ID into a collection variable so subsequent `Read`, `Update`, `Archive`, and `Restore` requests run without mutating seeded demo IDs. Run mutation examples against a disposable test database rather than a clean submission dataset.
 
 ## Assumptions and limits
 
