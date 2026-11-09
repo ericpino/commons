@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, FormEvent } from "react";
 import SkillPicker from "../components/skill-picker";
+import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
 import {
   Home,
@@ -169,6 +170,8 @@ export default function Page() {
       mode: string;
     } | null>(null),
     [audit, setAudit] = useState<Audit[]>([]),
+    [auditState, setAuditState] = useState("loading"),
+    [auditRetry, setAuditRetry] = useState(0),
     [feed, setFeed] = useState("All updates"),
     [recipient, setRecipient] = useState(""),
     [showArchived, setShowArchived] = useState(false),
@@ -252,18 +255,25 @@ export default function Page() {
     }
     if (screen === "Compliance") {
       setAudit([]);
+      setAuditState("loading");
       api<Audit[]>("audit")
         .then((value) => {
-          if (request === dataRequest.current) setAudit(value);
+          if (request === dataRequest.current) {
+            setAudit(value);
+            setAuditState("ready");
+          }
         })
         .catch((e) => {
-          if (request === dataRequest.current) setError(e.message);
+          if (request === dataRequest.current) {
+            setError(e.message);
+            setAuditState("error");
+          }
         });
     }
     return () => {
       if (request === dataRequest.current) dataRequest.current++;
     };
-  }, [screen, workspace]);
+  }, [screen, workspace, auditRetry]);
   async function mutate(
     path: string,
     method: string,
@@ -1343,6 +1353,9 @@ export default function Page() {
                     </span>
                     <h2>{r.title}</h2>
                     <p>{r.body}</p>
+                    <p className="muted">
+                      Owner: {person(r.owner_id)?.name || "Unavailable"}
+                    </p>
                     <div className="metrics">
                       <div>
                         <strong>{r.data.capacity}h</strong>
@@ -1365,18 +1378,19 @@ export default function Page() {
                     </div>
                     <p className="muted">
                       Typical contribution: {r.data.hours} hours / week
+                      <br />
+                      Gap: max({r.data.needed} − {r.data.capacity}, 0) ={" "}
+                      {Math.max(
+                        0,
+                        Number(r.data.needed) - Number(r.data.capacity),
+                      )}{" "}
+                      hours / week
+                      <br />
+                      As of {date(r.updated_at)}
                     </p>
                     {(r.owner_id === user.id || isRoot) && (
                       <details>
-                        <summary>
-                          Interested colleagues (
-                          {
-                            workspace.interests.filter(
-                              (i) => i.record_id === r.id,
-                            ).length
-                          }
-                          )
-                        </summary>
+                        <summary>Interested colleagues</summary>
                         {workspace.interests
                           .filter((i) => i.record_id === r.id)
                           .map((i) => (
@@ -1408,13 +1422,17 @@ export default function Page() {
                       >
                         {workspace.joined.includes(r.id)
                           ? "Withdraw interest"
-                          : "I’m interested"}
+                          : "Express interest"}
                         <Plus size={15} />
                       </button>
                       {source(r)}
                     </div>
                   </article>
                 ))}
+                {!filtered("allocation").length &&
+                  empty(
+                    "No opportunities match. Clear your search or check back for shared work.",
+                  )}
               </div>
             </>
           )}
@@ -1570,7 +1588,85 @@ export default function Page() {
                 </span>
               </div>
               <div className="card audit-card">
-                <h2>Access review</h2>
+                <h2>Activity trail</h2>
+                <p>
+                  Latest 500 audit entries, filtered to your permissions. Seeded
+                  demonstration history is marked in the change details. UTC
+                  timestamps are shown in your browser’s timezone.
+                </p>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Who</th>
+                        <th>Action</th>
+                        <th>When</th>
+                        <th>Record / change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {audit
+                        .filter((a) =>
+                          matches(`${a.actor} ${a.action} ${a.record_label}`),
+                        )
+                        .map((a) => (
+                          <tr key={a.id}>
+                            <td>{a.actor}</td>
+                            <td>
+                              <span className="chip">{a.action}</span>
+                            </td>
+                            <td>{new Date(a.created_at).toLocaleString()}</td>
+                            <td>
+                              <span>{a.record_label}</span>
+                              {workspace.records.some(
+                                (r) => r.id === a.record_id,
+                              ) && (
+                                <button
+                                  className="text-button"
+                                  onClick={() => {
+                                    setSelected(
+                                      workspace.records.find(
+                                        (r) => r.id === a.record_id,
+                                      )!,
+                                    );
+                                    setModal("source");
+                                  }}
+                                >
+                                  View current source
+                                </button>
+                              )}
+                              {Object.keys(a.detail as object).length > 0 && (
+                                <AuditDetails detail={a.detail} />
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {auditState === "loading" && (
+                  <p role="status">Loading activity…</p>
+                )}
+                {auditState === "error" && (
+                  <div className="empty">
+                    <p>Activity could not be loaded.</p>
+                    <button onClick={() => setAuditRetry((n) => n + 1)}>
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {auditState === "ready" &&
+                  !audit.some((a) =>
+                    matches(`${a.actor} ${a.action} ${a.record_label}`),
+                  ) &&
+                  empty(
+                    query
+                      ? "No activity matches your search."
+                      : "No activity is available for your current access.",
+                  )}
+              </div>
+              <div className="card audit-card">
+                <h2>Access at a glance</h2>
                 <p>
                   Current policy by role. Team-private records remain
                   team-scoped, including for Finance; Root can review all teams.
@@ -1609,7 +1705,7 @@ export default function Page() {
                           "Root administrator",
                           "All teams and budgets",
                           "All records, people and teams",
-                          "All activity; immutable",
+                          "All activity; read-only in this app",
                         ],
                       ].map((row) => (
                         <tr key={row[0]}>
@@ -1621,52 +1717,6 @@ export default function Page() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-              <div className="card audit-card">
-                <h2>Activity trail</h2>
-                <p>
-                  Latest 500 audit entries, filtered to your permissions. Seeded
-                  demonstration history is marked in the change details. UTC
-                  timestamps are shown in your browser’s timezone.
-                </p>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Who</th>
-                        <th>Action</th>
-                        <th>When</th>
-                        <th>Record / change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {audit
-                        .filter((a) => matches(`${a.actor} ${a.action}`))
-                        .map((a) => (
-                          <tr key={a.id}>
-                            <td>{a.actor}</td>
-                            <td>
-                              <span className="chip">{a.action}</span>
-                            </td>
-                            <td>{new Date(a.created_at).toLocaleString()}</td>
-                            <td>
-                              <span>{a.record_label}</span>
-                              {Object.keys(a.detail as object).length > 0 && (
-                                <details>
-                                  <summary>Before / after</summary>
-                                  <pre>{JSON.stringify(a.detail, null, 2)}</pre>
-                                </details>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!audit.length &&
-                  empty(
-                    "Make a change in another module to see its audit record here.",
-                  )}
               </div>
             </>
           )}

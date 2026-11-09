@@ -113,6 +113,8 @@ GitHub Actions runs lint, unit tests, production builds and PostgreSQL integrati
 
 ## Assumptions and limits
 
+**Allocation and Compliance presentation assumption:** the brief leaves these screens open, so Allocation uses existing opportunity cards with owner, capacity arithmetic, dated sources and voluntary interest. Compliance leads with the existing audit trail, readable changed fields and links to available current source records; original audit details remain expandable. The access overview describes the existing policy, not a new permission system.
+
 One company, five seeded users, four roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.
 
 This is a pilot, not a production security claim. Before production: SSO, tenant isolation, per-resource schema constraints, versioned migrations, SQL-level pagination/filtering, login throttling, audit tamper resistance, monitoring, backup/restore validation, granular budget roles, optimistic locking and broader accessibility checks. No deployment or public repository URL is claimed until actually provisioned and verified.
