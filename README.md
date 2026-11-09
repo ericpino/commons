@@ -109,3 +109,7 @@ GitHub Actions runs lint, unit tests, production builds and PostgreSQL integrati
 One company, four seeded users, three roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.
 
 This is a pilot, not a production security claim. Before production: SSO, tenant isolation, per-resource schema constraints, versioned migrations, SQL-level pagination/filtering, login throttling, audit tamper resistance, monitoring, backup/restore validation, granular budget roles, optimistic locking and broader accessibility checks. No deployment or public repository URL is claimed until actually provisioned and verified.
+
+## Agent skills
+
+Matt Pocock’s published engineering and productivity skills are installed locally in `.agents/skills/`. See [usage, setup, and provenance](docs/SKILLS.md). Open Commons as your Codex project to discover them.
