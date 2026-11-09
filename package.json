@@ -7,7 +7,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "lint": "eslint apps scripts && npm run typecheck --workspaces",
-    "test": "npm run test -w apps/api",
+    "test": "npm run test -w apps/api && npm run test -w apps/web",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
     "format": "prettier --write apps docs scripts README.md compose.yaml .github eslint.config.mjs",

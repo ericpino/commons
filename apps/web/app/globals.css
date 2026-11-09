@@ -1711,3 +1711,22 @@ dd {
     transition: none !important;
   }
 }
+.allocation-card p,
+.allocation-card dt,
+.allocation-card .allocation-meta,
+.allocation-card .allocation-provenance {
+  color: var(--ink);
+  text-transform: none;
+}
+.allocation-card .allocation-evidence {
+  margin: 0;
+  min-height: 0;
+  display: block;
+  font-weight: 400;
+}
+.allocation-numbers dd > svg {
+  flex-shrink: 0;
+}
+.allocation-info {
+  color: var(--ink);
+}

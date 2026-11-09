@@ -113,7 +113,7 @@ export default function AllocationCard({
                   ))}
                 {metric.value}
               </dd>
-              {provenance}
+              <dd className="allocation-evidence">{provenance}</dd>
             </div>
           ))}
         </dl>

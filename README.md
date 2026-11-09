@@ -113,6 +113,10 @@ GitHub Actions runs lint, unit tests, production builds and PostgreSQL integrati
 
 ## Assumptions and limits
 
+**Allocation UI assumptions:** “role” in the colleague list means the returned job title (falling back to the returned permission role). Colleague details are joined only to identities in the returned interest list, sorted by name; the directory never supplies additional interest identities. The existing API exposes a full list only for an active opportunity’s creator or Root; otherwise an empty response is described as permission-limited, not zero interest. Archived lists are treated as unavailable. Dates use the browser timezone. Long descriptions are visually truncated to one line; View source retains the full text.
+
+Allocation omits Edit/Archive controls because records do not expose a server-provided edit capability. Interest retries first read the current joined state before using the existing toggle endpoint; this avoids blindly repeating an ambiguous request but cannot guarantee idempotency across concurrent clients. No optimistic mutation is used. Colleague refresh shows loading/error/retry states on the existing workspace request.
+
 **Allocation and Compliance presentation assumption:** the brief leaves these screens open, so Allocation uses existing opportunity cards with owner, capacity arithmetic, dated sources and voluntary interest. Compliance leads with the existing audit trail, readable changed fields and links to available current source records; original audit details remain expandable. The access overview describes the existing policy, not a new permission system.
 
 One company, five seeded users, four roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.

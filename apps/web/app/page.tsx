@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, FormEvent } from "react";
-import AllocationCard from "../components/allocation-card";
+import { reconcileInterest } from "../components/allocation-interest";
+import AllocationCard, { InterestState } from "../components/allocation-card";
 import SkillPicker from "../components/skill-picker";
 import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
@@ -173,6 +174,12 @@ export default function Page() {
     [audit, setAudit] = useState<Audit[]>([]),
     [auditState, setAuditState] = useState("loading"),
     [auditRetry, setAuditRetry] = useState(0),
+    [interestStates, setInterestStates] = useState<
+      Record<string, InterestState & { desired?: boolean }>
+    >({}),
+    [colleagueStates, setColleagueStates] = useState<
+      Record<string, "ready" | "loading" | "error">
+    >({}),
     [feed, setFeed] = useState("All updates"),
     [recipient, setRecipient] = useState(""),
     [showArchived, setShowArchived] = useState(false),
@@ -184,10 +191,12 @@ export default function Page() {
     } | null>(null);
   useEffect(() => {
     if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 4500);
+    const timer = setTimeout(() => setNotice(""), 5000);
     return () => clearTimeout(timer);
   }, [notice]);
   const dataRequest = useRef(0);
+  const personaRef = useRef(workspace?.user.id);
+  personaRef.current = workspace?.user.id;
   const busyRef = useRef(busy);
   busyRef.current = busy;
   useEffect(() => {
@@ -304,6 +313,78 @@ export default function Page() {
       setBusy(false);
     }
   }
+  async function reloadColleagues(id: string) {
+    const persona = workspace?.user.id;
+    setColleagueStates((old) => ({ ...old, [id]: "loading" }));
+    try {
+      const current = await api<Workspace>("workspace?archived=true");
+      if (personaRef.current !== persona || current.user.id !== persona) return;
+      setWorkspace(current);
+      setColleagueStates((old) => ({ ...old, [id]: "ready" }));
+    } catch {
+      if (personaRef.current !== persona) return;
+      setColleagueStates((old) => ({ ...old, [id]: "error" }));
+    }
+  }
+  const interestRequest = useRef(false);
+  async function changeInterest(id: string, desired: boolean) {
+    if (interestRequest.current) return;
+    interestRequest.current = true;
+    setBusy(true);
+    setInterestStates((old) => ({
+      ...old,
+      [id]: { status: "saving", desired },
+    }));
+    try {
+      const joined = await reconcileInterest(
+        desired,
+        async () => {
+          const current = await api<Workspace>("workspace?archived=true");
+          if (
+            current.user.id !== workspace?.user.id ||
+            !current.records.some((r) => r.id === id && !r.archived_at)
+          )
+            throw new Error(
+              "This opportunity is no longer available for your current access.",
+            );
+          setWorkspace(current);
+          return current.joined.includes(id);
+        },
+        () => api<{ joined: boolean }>(`records/${id}/join`, "POST"),
+      );
+      setWorkspace((old) =>
+        old
+          ? {
+              ...old,
+              joined: joined
+                ? [...new Set([...old.joined, id])]
+                : old.joined.filter((key) => key !== id),
+            }
+          : old,
+      );
+      setInterestStates((old) => ({ ...old, [id]: { status: "idle" } }));
+      setNotice(
+        joined
+          ? "Interest recorded. This does not change your manager or commit your time."
+          : "Interest withdrawn.",
+      );
+      await reloadColleagues(id);
+    } catch (e) {
+      setInterestStates((old) => ({
+        ...old,
+        [id]: {
+          status: "error",
+          desired,
+          message:
+            (e as Error).message +
+            " Retry checks your current interest before making a change.",
+        },
+      }));
+    } finally {
+      interestRequest.current = false;
+      setBusy(false);
+    }
+  }
   async function viewAs(userId: string) {
     dataRequest.current++;
     setBusy(true);
@@ -313,6 +394,8 @@ export default function Page() {
     setInsights(null);
     setAudit([]);
     setShowArchived(false);
+    setInterestStates({});
+    setColleagueStates({});
     setTeamPage(null);
     try {
       await api("demo/view-as", "POST", { userId });
@@ -515,7 +598,7 @@ export default function Page() {
       >
         View source <ArrowUpRight size={14} />
       </button>
-      {manage(r) && (
+      {screen !== "Allocation" && manage(r) && (
         <>
           {!r.archived_at && (
             <button
@@ -586,7 +669,9 @@ export default function Page() {
             <p>
               Contributions, not scores.
               <br />
-              Invitations, not assignments.
+              {screen === "Allocation"
+                ? "Invitations. Always opt-in."
+                : "Invitations, not assignments."}
             </p>
           </div>
           <button
@@ -1338,7 +1423,7 @@ export default function Page() {
           )}
           {screen === "Allocation" && (
             <>
-              <div className="info-strip">
+              <div className="info-strip allocation-info">
                 <Compass size={20} />
                 <span>
                   Opt in to work that interests you. Joining expresses interest;
@@ -1356,12 +1441,19 @@ export default function Page() {
                     people={people}
                     interests={workspace.interests}
                     joined={workspace.joined.includes(r.id)}
-                    state={{ status: busy ? "saving" : "idle" }}
+                    state={interestStates[r.id] || { status: "idle" }}
+                    listState={colleagueStates[r.id] || "ready"}
                     disabled={busy}
-                    onInterest={() => mutate(`records/${r.id}/join`, "POST")}
-                    onWithdraw={() => mutate(`records/${r.id}/join`, "POST")}
-                    onRetry={() => void refresh()}
-                    onReload={() => void refresh()}
+                    onInterest={() => void changeInterest(r.id, true)}
+                    onWithdraw={() => void changeInterest(r.id, false)}
+                    onRetry={() =>
+                      void changeInterest(
+                        r.id,
+                        interestStates[r.id]?.desired ??
+                          !workspace.joined.includes(r.id),
+                      )
+                    }
+                    onReload={() => void reloadColleagues(r.id)}
                     onSource={() => {
                       setSelected(r);
                       setModal("source");
@@ -1738,7 +1830,9 @@ export default function Page() {
                   <dd>
                     <code>{selected.id}</code>
                   </dd>
-                  <dt>Owner</dt>
+                  <dt>
+                    {selected.kind === "allocation" ? "Posted by" : "Owner"}
+                  </dt>
                   <dd>{person(selected.owner_id)?.name}</dd>
                   <dt>Visibility</dt>
                   <dd>{selected.visibility}</dd>
