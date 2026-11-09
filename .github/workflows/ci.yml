@@ -24,7 +24,7 @@ jobs:
       - run: npm run build
       - run: |
           npm run start -w apps/api > /tmp/api.log 2>&1 &
-          node scripts/integration.mjs
+          npm run test:integration
         env:
           DATABASE_URL: postgresql://commons:ci_only@localhost:5432/commons
           DEMO_PASSWORD: ci-demo-password

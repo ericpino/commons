@@ -19,6 +19,7 @@ For a shared deployment, set `DEMO_PASSWORD`, `POSTGRES_PASSWORD`, `WEB_ORIGIN` 
 | Maya Chen   | Employee, Product         | Post, recognize, edit own expertise, follow teams, express interest |
 | Alex Morgan | Lead, Product             | Update a goal and staffing capacity; inspect team audit             |
 | Jordan Lee  | Finance admin, Operations | Edit budgets, see financial Insights and audit entries              |
+| Root Admin  | Root administrator        | Full cross-team access; manage every record, person and team        |
 | Sam Rivera  | Employee, Operations      | Verify Product-private posts are absent                             |
 
 ## Scope and implementation plan
@@ -69,26 +70,31 @@ The pilot uses typed domain records backed by JSONB for module-specific values. 
 | `follows`  | Unique user/team feed preference                                           |
 | `audit`    | Actor, action, source ID, team, before/after JSON and timestamp            |
 
-Visibility is `company`, `team`, or `finance`. Following never grants access. Finance admins can manage company planning and financial data but do not gain access to other teams' private feed posts. Audit visibility: own actions for employees, non-financial team actions plus own for leads, all actions for finance.
+Visibility is `company`, `team`, or `finance`. Root has full cross-team access. Tables also carry `archived_at` to support reversible deletion. Following never grants access. Finance admins can manage company planning and financial data but do not gain access to other teams' private feed posts. Audit visibility: own actions for employees, non-financial team actions plus own for leads, all actions for finance and root.
 
 ## Local development
 
-Node.js 22 and PostgreSQL 16+ recommended. Copy `.env.example` to `.env` and customize locally. The Node commands below load the root environment explicitly:
+Node.js 22 and PostgreSQL 16+ recommended. For a fresh checkout:
 
 ```sh
 npm ci
+cp .env.example .env
 docker compose up -d db
-npm run build -w apps/api
-node --env-file=.env apps/api/dist/main.js
+npm run dev
 ```
 
-In another terminal:
+`npm run dev` loads `.env` and optional `.env.development` (existing environment values take precedence), checks PostgreSQL connectivity, and starts both NestJS and Next.js with file watching. Ctrl+C stops both apps. The default development ports are 3000/4000; change `WEB_PORT`, `API_PORT`, `WEB_ORIGIN` and `API_URL` together if needed. `DATABASE_URL` must match the published PostgreSQL port.
 
-```sh
-npm run dev:web
-```
+On the current development machine, an ignored `.env.development` is initialized only if absent, using the verified database on port 55433 and development frontend/API ports 3102/4102. The Docker application remains on port 3100. Both use the same fictional pilot database.
 
-The web dev server defaults to http://localhost:3000 and proxies to http://localhost:4000. For a non-default API URL, export `API_URL` before starting/building Next.js.
+## Complete record lifecycle and root administration
+
+- Posts, recognition, goals, opportunities and budgets support create, read, edit, archive and restore. Forms expose all editable fields, including titles, details, team/visibility, goal targets/evidence, allocation hours, and financial values/source notes.
+- **Archive is the delete operation:** data remains recoverable and audit history is preserved. Archived records are hidden by default and excluded from Insights. Enable **Include archived records** to inspect and restore entries you manage.
+- Authors can edit/archive their posts and recognition; leads manage their team's plans; finance manages budgets and planning. **Root Admin** bypasses role/team restrictions across records and can create/edit/archive/restore people and teams.
+- Root may change roles, team membership and profile fields. Role/team changes revoke other users' sessions; archived people cannot sign in. The active root account cannot archive or demote itself. Teams with active people or records must have those dependencies reassigned or archived first.
+- Every successful mutation shows an in-app success notification. These are confirmation toasts, not email/SMS delivery or fraud alerts.
+- Mutations, including follows and directory changes, write audit entries in the same PostgreSQL transaction. Audit entries remain read-only; root access does not erase history.
 
 ## Validation
 
@@ -97,16 +103,17 @@ npm run lint
 npm test
 npm run build
 # With API and database running:
-node --env-file=.env scripts/integration.mjs
+TEST_API_URL=http://localhost:4102 node --env-file=.env scripts/integration.mjs
+TEST_API_URL=http://localhost:4102 node --env-file=.env scripts/crud-integration.mjs
 ```
 
-Policy tests cover visibility, cross-team management and financial validation. HTTP integration checks use real PostgreSQL: authentication, persistent writes, direct-record authorization, budget restrictions, evidence links, opt-in, own profile edits, follows, audit visibility and logout. Integration checks create a fictional test update and audit records, and restore changed seed values. Run against a disposable database, not a customer deployment.
+Policy tests cover visibility, cross-team management and financial validation. HTTP integration checks use real PostgreSQL: authentication, persistent writes, direct-record authorization, budget restrictions, evidence links, opt-in, own profile edits, follows, audit visibility and logout. Integration checks create fictional test records, archive them, retain their audit records, and restore changed seed values. The CRUD suite also injects a temporary failing audit trigger to prove transaction rollback, removing it in a finally block. Run against a disposable database, not a customer deployment.
 
 GitHub Actions runs lint, unit tests, production builds and PostgreSQL integration checks on every push and pull request. It becomes active when the repository is pushed to GitHub.
 
 ## Assumptions and limits
 
-One company, four seeded users, three roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.
+One company, five seeded users, four roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.
 
 This is a pilot, not a production security claim. Before production: SSO, tenant isolation, per-resource schema constraints, versioned migrations, SQL-level pagination/filtering, login throttling, audit tamper resistance, monitoring, backup/restore validation, granular budget roles, optimistic locking and broader accessibility checks. No deployment or public repository URL is claimed until actually provisioned and verified.
 

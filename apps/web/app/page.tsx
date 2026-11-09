@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, useRef, FormEvent } from "react";
+import RecordFields from "../components/record-fields";
 import {
   Home,
   Users,
@@ -28,6 +29,7 @@ type Person = {
   team_id: string;
   title: string;
   skills: string[];
+  archived_at?: string | null;
 };
 type Work = {
   id: string;
@@ -40,8 +42,14 @@ type Work = {
   data: Record<string, string | number>;
   updated_at: string;
   created_at: string;
+  archived_at?: string | null;
 };
-type Team = { id: string; name: string; mission: string };
+type Team = {
+  id: string;
+  name: string;
+  mission: string;
+  archived_at?: string | null;
+};
 type Workspace = {
   user: Person;
   people: Person[];
@@ -154,9 +162,19 @@ export default function Page() {
     } | null>(null),
     [audit, setAudit] = useState<Audit[]>([]),
     [feed, setFeed] = useState("All updates"),
-    [recipient, setRecipient] = useState("");
+    [recipient, setRecipient] = useState(""),
+    [showArchived, setShowArchived] = useState(false),
+    [entity, setEntity] = useState<Person | Team | null>(null),
+    [confirmation, setConfirmation] = useState<{
+      path: string;
+      title: string;
+      restore: boolean;
+    } | null>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   useEffect(() => {
     if (!modal) return;
+    setError("");
     const previous = document.activeElement as HTMLElement | null;
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     const items = () =>
@@ -170,7 +188,7 @@ export default function Page() {
     );
     (firstInput || items()[0])?.focus();
     const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) {
+      if (event.key === "Escape" && !busyRef.current) {
         setModal(null);
         setSelected(null);
       }
@@ -191,9 +209,9 @@ export default function Page() {
       document.removeEventListener("keydown", key);
       previous?.focus();
     };
-  }, [modal, busy]);
+  }, [modal]);
   async function refresh() {
-    const w = await api<Workspace>("workspace");
+    const w = await api<Workspace>("workspace?archived=true");
     setWorkspace(w);
     return w;
   }
@@ -216,7 +234,12 @@ export default function Page() {
         .then(setAudit)
         .catch((e) => setError(e.message));
   }, [screen, workspace]);
-  async function mutate(path: string, method: string, body?: unknown) {
+  async function mutate(
+    path: string,
+    method: string,
+    body?: unknown,
+    success?: string,
+  ) {
     setBusy(true);
     setError("");
     try {
@@ -224,7 +247,16 @@ export default function Page() {
       await refresh();
       setModal(null);
       setSelected(null);
-      setNotice("Saved. Your workspace is up to date.");
+      setEntity(null);
+      setConfirmation(null);
+      const verb = path.endsWith("/archive")
+        ? "archived"
+        : path.endsWith("/restore")
+          ? "restored"
+          : method === "PATCH"
+            ? "updated"
+            : "created";
+      setNotice(success || `Successfully ${verb}. Your changes are saved.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -242,6 +274,7 @@ export default function Page() {
         password: f.get("password"),
       });
       await refresh();
+      setNotice("Signed in successfully.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -251,6 +284,33 @@ export default function Page() {
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.currentTarget));
+    if (modal === "confirm" && confirmation)
+      return mutate(
+        confirmation.path,
+        "POST",
+        undefined,
+        `${confirmation.title} ${confirmation.restore ? "restored" : "archived"} successfully.`,
+      );
+    if (modal === "person")
+      return mutate(
+        entity ? `people/${entity.id}` : "people",
+        entity ? "PATCH" : "POST",
+        {
+          ...f,
+          skills: String(f.skills || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        },
+        `Person ${entity ? "updated" : "created"} successfully.`,
+      );
+    if (modal === "team")
+      return mutate(
+        entity ? `teams/${entity.id}` : "teams",
+        entity ? "PATCH" : "POST",
+        f,
+        `Team ${entity ? "updated" : "created"} successfully.`,
+      );
     if (modal === "skills")
       return mutate("profile", "PATCH", {
         skills: String(f.skills)
@@ -263,7 +323,7 @@ export default function Page() {
     return mutate("records", "POST", {
       ...f,
       kind: modal,
-      teamId: workspace?.user.team_id,
+      teamId: f.teamId || workspace?.user.team_id,
     });
   }
   if (loading)
@@ -304,6 +364,11 @@ export default function Page() {
           <small>Fictional company. Real, connected workflows.</small>
         </div>
         <form className="login-card" onSubmit={login}>
+          {notice && (
+            <div role="status" className="notice">
+              {notice}
+            </div>
+          )}
           <span className="eyebrow">NORTHSTAR WORKSPACE</span>
           <h2>Make yourself at home.</h2>
           <p>Choose a seeded persona to explore its permissions.</p>
@@ -338,37 +403,85 @@ export default function Page() {
           </button>
           <small>
             Use Maya for employee access, Alex for team planning, or Jordan for
-            finance and audit access.
+            finance and audit access. Choose Root Admin for unrestricted
+            workspace administration.
           </small>
         </form>
       </main>
     );
-  const { user, records, people, teams } = workspace;
+  const { user, people, teams } = workspace;
+  const records = workspace.records.filter(
+    (r) => showArchived || !r.archived_at,
+  );
+  const isRoot = user.role === "root";
+  const isFinance = isRoot || user.role === "finance";
+  const requestArchive = (
+    path: string,
+    title: string,
+    archived?: string | null,
+  ) => {
+    setConfirmation({
+      path: `${path}/${archived ? "restore" : "archive"}`,
+      title,
+      restore: !!archived,
+    });
+    setModal("confirm");
+  };
   const person = (id: string) => people.find((p) => p.id === id);
   const team = (id: string) => teams.find((t) => t.id === id)?.name || id;
   const matches = (s: string) => s.toLowerCase().includes(query.toLowerCase());
   const filtered = (kind: string) =>
     records.filter((r) => r.kind === kind && matches(`${r.title} ${r.body}`));
   const manage = (r: Work) =>
-    r.kind === "budget"
-      ? user.role === "finance"
-      : user.role === "finance" ||
-        (user.role === "lead" && user.team_id === r.team_id);
+    isRoot ||
+    (["post", "recognition"].includes(r.kind)
+      ? r.owner_id === user.id
+      : r.kind === "budget"
+        ? isFinance
+        : user.role === "finance" ||
+          (user.role === "lead" && user.team_id === r.team_id));
   const canCreate = ["Goals", "Allocation"].includes(screen)
     ? user.role !== "employee"
     : screen === "Budget"
-      ? user.role === "finance"
+      ? isFinance
       : false;
   const source = (r: Work) => (
-    <button
-      className="text-button"
-      onClick={() => {
-        setSelected(r);
-        setModal("source");
-      }}
-    >
-      View source <ArrowUpRight size={14} />
-    </button>
+    <div className="record-controls">
+      {r.archived_at && <span className="chip">Archived</span>}
+      <button
+        className="text-button"
+        onClick={() => {
+          setSelected(r);
+          setModal("source");
+        }}
+      >
+        View source <ArrowUpRight size={14} />
+      </button>
+      {manage(r) && (
+        <>
+          {!r.archived_at && (
+            <button
+              className="text-button"
+              onClick={() => {
+                setSelected(r);
+                setModal("edit");
+              }}
+            >
+              Edit
+            </button>
+          )}
+          <button
+            className="text-button"
+            disabled={busy}
+            onClick={() =>
+              requestArchive(`records/${r.id}`, r.title, r.archived_at)
+            }
+          >
+            {r.archived_at ? "Restore" : "Archive"}
+          </button>
+        </>
+      )}
+    </div>
   );
   const empty = (message: string) => (
     <div className="empty">
@@ -400,7 +513,7 @@ export default function Page() {
                 setScreen(name);
                 setQuery("");
                 setError("");
-                setNotice("");
+                setShowArchived(false);
               }}
             >
               <Icon size={19} />
@@ -421,22 +534,35 @@ export default function Page() {
           <button
             className="account"
             onClick={async () => {
-              await api("logout", "POST");
-              setWorkspace(null);
-              setInsights(null);
-              setAudit([]);
-              setScreen("Home");
+              try {
+                await api("logout", "POST");
+                setWorkspace(null);
+                setInsights(null);
+                setAudit([]);
+                setScreen("Home");
+                setShowArchived(false);
+                setModal(null);
+                setSelected(null);
+                setEntity(null);
+                setError("");
+                setNotice("Signed out successfully.");
+                setDemo(await api<Person[]>("demo-users"));
+              } catch (e) {
+                setError((e as Error).message);
+              }
             }}
           >
             <span className="avatar small">{initials(user.name)}</span>
             <span>
               {user.name}
               <small>
-                {user.role === "lead"
-                  ? "Team lead"
-                  : user.role === "finance"
-                    ? "Finance admin"
-                    : "Employee"}
+                {user.role === "root"
+                  ? "Root administrator"
+                  : user.role === "lead"
+                    ? "Team lead"
+                    : user.role === "finance"
+                      ? "Finance admin"
+                      : "Employee"}
               </small>
             </span>
             <LogOut size={16} />
@@ -500,6 +626,34 @@ export default function Page() {
                     : "opportunity"}
               </button>
             ) : null}
+          </div>
+          <div className="module-tools">
+            {!["Insights", "Compliance"].includes(screen) && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                />{" "}
+                Include archived{" "}
+                {["People", "Organization"].includes(screen)
+                  ? "entries"
+                  : "records"}
+              </label>
+            )}
+            {isRoot && ["People", "Organization"].includes(screen) && (
+              <button
+                className="primary"
+                onClick={() => {
+                  setEntity(null);
+                  setModal(screen === "People" ? "person" : "team");
+                }}
+              >
+                <Plus size={16} />
+                Create {screen === "People" ? "person" : "team"}
+              </button>
+            )}
+            {isRoot && <span className="chip">ROOT · ALL TEAMS</span>}
           </div>
           {error && (
             <div className="error" role="alert">
@@ -709,7 +863,8 @@ export default function Page() {
             <>
               <div className="section-title">
                 <span>
-                  {people.length} colleagues · Expertise is self-listed
+                  {people.filter((p) => showArchived || !p.archived_at).length}{" "}
+                  colleagues · Expertise is self-listed
                 </span>
                 <button
                   className="secondary"
@@ -720,8 +875,10 @@ export default function Page() {
               </div>
               <div className="cards-grid">
                 {people
-                  .filter((p) =>
-                    matches(`${p.name} ${p.skills.join(" ")} ${p.title}`),
+                  .filter(
+                    (p) =>
+                      (showArchived || !p.archived_at) &&
+                      matches(`${p.name} ${p.skills.join(" ")} ${p.title}`),
                   )
                   .map((p) => (
                     <article className="card person-card" key={p.id}>
@@ -739,10 +896,42 @@ export default function Page() {
                           </span>
                         ))}
                       </div>
-                      <small>Self-listed expertise · No ratings</small>
+                      <small>
+                        {p.archived_at
+                          ? "Archived person"
+                          : "Self-listed expertise · No ratings"}
+                      </small>
+                      {isRoot && (
+                        <div className="record-controls directory-controls">
+                          {!p.archived_at && (
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setEntity(p);
+                                setModal("person");
+                              }}
+                            >
+                              Edit person
+                            </button>
+                          )}
+                          <button
+                            className="text-button"
+                            disabled={p.id === user.id || busy}
+                            onClick={() =>
+                              requestArchive(
+                                `people/${p.id}`,
+                                p.name,
+                                p.archived_at,
+                              )
+                            }
+                          >
+                            {p.archived_at ? "Restore" : "Archive"}
+                          </button>
+                        </div>
+                      )}
                       <button
                         className="text-button"
-                        disabled={p.id === user.id}
+                        disabled={p.id === user.id || !!p.archived_at}
                         onClick={() => {
                           setModal("recognition");
                           setRecipient(p.id);
@@ -759,17 +948,52 @@ export default function Page() {
           {screen === "Organization" && (
             <div className="cards-grid two">
               {teams
-                .filter((t) => matches(`${t.name} ${t.mission}`))
+                .filter(
+                  (t) =>
+                    (showArchived || !t.archived_at) &&
+                    matches(`${t.name} ${t.mission}`),
+                )
                 .map((t) => (
                   <article className="card team-card" key={t.id}>
                     <span className="team-symbol">
                       <Network size={25} />
                     </span>
                     <h2>{t.name}</h2>
+                    {t.archived_at && (
+                      <span className="chip">Archived team</span>
+                    )}
+                    {isRoot && (
+                      <div className="record-controls directory-controls">
+                        {!t.archived_at && (
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setEntity(t);
+                              setModal("team");
+                            }}
+                          >
+                            Edit team
+                          </button>
+                        )}
+                        <button
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() =>
+                            requestArchive(
+                              `teams/${t.id}`,
+                              t.name,
+                              t.archived_at,
+                            )
+                          }
+                        >
+                          {t.archived_at ? "Restore" : "Archive"}
+                        </button>
+                      </div>
+                    )}
                     <p>{t.mission}</p>
                     <div className="team-people">
                       {people
-                        .filter((p) => p.team_id === t.id)
+                        .filter((p) => p.team_id === t.id && !p.archived_at)
                         .map((p) => (
                           <div key={p.id}>
                             <span className="avatar small">
@@ -805,8 +1029,17 @@ export default function Page() {
                     </div>
                     <button
                       className="secondary full"
-                      disabled={busy}
-                      onClick={() => mutate(`teams/${t.id}/follow`, "POST")}
+                      disabled={busy || !!t.archived_at}
+                      onClick={() =>
+                        mutate(
+                          `teams/${t.id}/follow`,
+                          "POST",
+                          undefined,
+                          workspace.following.includes(t.id)
+                            ? "Team unfollowed successfully."
+                            : "Team followed successfully.",
+                        )
+                      }
                     >
                       {workspace.following.includes(t.id) ? (
                         <Check size={16} />
@@ -852,20 +1085,7 @@ export default function Page() {
                       Updated {date(r.updated_at)} · {person(r.owner_id)?.name}
                     </small>
                   </div>
-                  <div className="card-actions">
-                    {source(r)}
-                    {manage(r) && (
-                      <button
-                        className="secondary"
-                        onClick={() => {
-                          setSelected(r);
-                          setModal("edit");
-                        }}
-                      >
-                        Update progress
-                      </button>
-                    )}
-                  </div>
+                  <div className="card-actions">{source(r)}</div>
                 </article>
               ))}
               {!filtered("goal").length && empty("No goals match your search.")}
@@ -919,27 +1139,24 @@ export default function Page() {
                             ? "secondary"
                             : "primary"
                         }
-                        disabled={busy}
-                        onClick={() => mutate(`records/${r.id}/join`, "POST")}
+                        disabled={busy || !!r.archived_at}
+                        onClick={() =>
+                          mutate(
+                            `records/${r.id}/join`,
+                            "POST",
+                            undefined,
+                            workspace.joined.includes(r.id)
+                              ? "Interest withdrawn successfully."
+                              : "Interest registered successfully.",
+                          )
+                        }
                       >
                         {workspace.joined.includes(r.id)
                           ? "Withdraw interest"
                           : "I’m interested"}
                         <ArrowUpRight size={15} />
                       </button>
-                      {manage(r) ? (
-                        <button
-                          className="text-button"
-                          onClick={() => {
-                            setSelected(r);
-                            setModal("edit");
-                          }}
-                        >
-                          Edit capacity
-                        </button>
-                      ) : (
-                        source(r)
-                      )}
+                      {source(r)}
                     </div>
                   </article>
                 ))}
@@ -947,7 +1164,7 @@ export default function Page() {
             </>
           )}
           {screen === "Budget" &&
-            (user.role !== "finance" ? (
+            (!isFinance ? (
               <div className="empty">
                 <ShieldCheck size={35} />
                 <h2>Finance access required</h2>
@@ -1023,18 +1240,7 @@ export default function Page() {
                         <p>{r.data.driver}</p>
                         <small>Updated {date(r.updated_at)}</small>
                       </div>
-                      <div className="card-actions">
-                        {source(r)}
-                        <button
-                          className="secondary"
-                          onClick={() => {
-                            setSelected(r);
-                            setModal("edit");
-                          }}
-                        >
-                          Update budget
-                        </button>
-                      </div>
+                      <div className="card-actions">{source(r)}</div>
                     </article>
                   ))}
                 </div>
@@ -1095,8 +1301,8 @@ export default function Page() {
               <div className="info-strip">
                 <ShieldCheck size={20} />
                 <span>
-                  {user.role === "finance"
-                    ? "Finance admins can review all audit entries."
+                  {isFinance
+                    ? "Finance and root admins can review all audit entries."
                     : user.role === "lead"
                       ? "Team leads can review their team’s non-financial changes and their own actions."
                       : "Employees can review their own actions."}{" "}
@@ -1194,17 +1400,21 @@ export default function Page() {
               COMMONS / {modal === "source" ? "TRUSTED RECORD" : "SHARED WORK"}
             </span>
             <h2>
-              {modal === "source"
-                ? selected?.title
-                : modal === "skills"
-                  ? "Your expertise, in your words."
-                  : modal === "edit"
-                    ? `Update ${selected?.kind}`
-                    : modal === "recognition"
-                      ? "Recognize a contribution."
-                      : modal === "post"
-                        ? "What’s moving forward?"
-                        : `Create ${modal}`}
+              {modal === "confirm"
+                ? `${confirmation?.restore ? "Restore" : "Archive"} entry`
+                : ["person", "team"].includes(modal!)
+                  ? `${entity ? "Edit" : "Create"} ${modal}`
+                  : modal === "source"
+                    ? selected?.title
+                    : modal === "skills"
+                      ? "Your expertise, in your words."
+                      : modal === "edit"
+                        ? `Update ${selected?.kind}`
+                        : modal === "recognition"
+                          ? "Recognize a contribution."
+                          : modal === "post"
+                            ? "What’s moving forward?"
+                            : `Create ${modal}`}
             </h2>
             {error && (
               <div className="error" role="alert">
@@ -1214,6 +1424,13 @@ export default function Page() {
             {modal === "source" && selected ? (
               <div>
                 <p>{selected.body}</p>
+                {selected.archived_at && (
+                  <p>
+                    Archived {date(selected.archived_at)}. Excluded from active
+                    Insights.
+                  </p>
+                )}
+                {source(selected)}
                 <dl>
                   <dt>Source ID</dt>
                   <dd>
@@ -1235,11 +1452,23 @@ export default function Page() {
               </div>
             ) : (
               <form onSubmit={save}>
-                {modal === "skills" ? (
+                {modal === "confirm" && confirmation ? (
                   <>
                     <p>
-                      List expertise you’re happy to share. Only you can edit
-                      it; there are no ratings.
+                      {confirmation.restore ? "Restore" : "Archive"}{" "}
+                      <strong>{confirmation.title}</strong>?
+                    </p>
+                    <p>
+                      {confirmation.restore
+                        ? "The entry will be active again."
+                        : "The entry will be hidden from active views. Its history will be preserved and it can be restored."}
+                    </p>
+                  </>
+                ) : modal === "skills" ? (
+                  <>
+                    <p>
+                      List expertise you’re happy to share. There are no
+                      ratings.
                     </p>
                     <label>
                       Skills, separated by commas
@@ -1251,167 +1480,128 @@ export default function Page() {
                       />
                     </label>
                   </>
-                ) : modal === "edit" && selected ? (
+                ) : modal === "person" ? (
                   <>
-                    {selected.kind === "goal" ? (
-                      <>
-                        <label>
-                          Progress (%)
-                          <input
-                            autoFocus
-                            name="progress"
-                            type="number"
-                            min="0"
-                            max="100"
-                            required
-                            defaultValue={selected.data.progress}
-                          />
-                        </label>
-                        <label>
-                          Dated progress evidence
-                          <textarea
-                            name="evidence"
-                            required
-                            maxLength={1000}
-                            defaultValue={selected.data.evidence}
-                          />
-                        </label>
-                      </>
-                    ) : selected.kind === "budget" ? (
-                      <>
-                        <label>
-                          Planned (USD)
-                          <input
-                            autoFocus
-                            name="planned"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            required
-                            defaultValue={selected.data.planned}
-                          />
-                        </label>
-                        <label>
-                          Actual (USD)
-                          <input
-                            name="actual"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            required
-                            defaultValue={selected.data.actual}
-                          />
-                        </label>
-                        <label>
-                          Spend drivers / source notes
-                          <textarea
-                            name="driver"
-                            required
-                            maxLength={1000}
-                            defaultValue={selected.data.driver}
-                          />
-                        </label>
-                      </>
-                    ) : (
-                      <>
-                        <label>
-                          Available capacity (hours/week)
-                          <input
-                            autoFocus
-                            name="capacity"
-                            type="number"
-                            min="0"
-                            required
-                            defaultValue={selected.data.capacity}
-                          />
-                        </label>
-                        <label>
-                          Needed (hours/week)
-                          <input
-                            name="needed"
-                            type="number"
-                            min="0"
-                            required
-                            defaultValue={selected.data.needed}
-                          />
-                        </label>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {modal === "recognition" && (
-                      <label>
-                        Colleague
-                        <select name="recipient" defaultValue={recipient}>
-                          {people
-                            .filter((p) => p.id !== user.id)
-                            .map((p) => (
-                              <option value={p.id} key={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                    )}
                     <label>
-                      {modal === "recognition"
-                        ? "Contribution headline"
-                        : "Title"}
+                      Name
                       <input
                         autoFocus
-                        name="title"
+                        name="name"
                         required
-                        maxLength={140}
-                        placeholder={
-                          modal === "post"
-                            ? "A milestone, a learning, a decision…"
-                            : "Give this work a clear name"
-                        }
+                        maxLength={100}
+                        defaultValue={entity?.name}
                       />
                     </label>
                     <label>
-                      {modal === "recognition"
-                        ? "How did their contribution help?"
-                        : "Details"}
-                      <textarea
-                        name="body"
+                      Job title
+                      <input
+                        name="title"
                         required
-                        maxLength={2000}
-                        placeholder="Share enough context to help someone connect the dots."
+                        maxLength={100}
+                        defaultValue={(entity as Person)?.title}
                       />
                     </label>
-                    {modal === "goal" && (
-                      <label>
-                        Target / success measure
-                        <input name="target" maxLength={200} required />
-                      </label>
-                    )}
-                    {modal !== "budget" && (
-                      <label>
-                        Share with
-                        <select name="visibility">
-                          <option value="company">Everyone at Northstar</option>
-                          <option value="team">My team only</option>
-                        </select>
-                      </label>
-                    )}
-                    {modal === "recognition" && (
-                      <p className="muted">
-                        Recognition celebrates a contribution. It never becomes
-                        a score or a skills assessment.
-                      </p>
-                    )}
+                    <label>
+                      Role
+                      <select
+                        name="role"
+                        defaultValue={(entity as Person)?.role || "employee"}
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="lead">Team lead</option>
+                        <option value="finance">Finance admin</option>
+                        <option value="root">Root administrator</option>
+                      </select>
+                    </label>
+                    <label>
+                      Team
+                      <select
+                        name="teamId"
+                        defaultValue={
+                          (entity as Person)?.team_id || user.team_id
+                        }
+                      >
+                        {teams
+                          .filter((t) => !t.archived_at)
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      Skills, separated by commas
+                      <input
+                        name="skills"
+                        maxLength={480}
+                        defaultValue={(entity as Person)?.skills?.join(", ")}
+                      />
+                    </label>
+                    <p>
+                      Root can administer all profiles. Skills are descriptions,
+                      never proficiency ratings. Role or team changes revoke the
+                      affected person’s existing sessions.
+                    </p>
                   </>
+                ) : modal === "team" ? (
+                  <>
+                    <label>
+                      Team name
+                      <input
+                        autoFocus
+                        name="name"
+                        required
+                        maxLength={100}
+                        defaultValue={entity?.name}
+                      />
+                    </label>
+                    <label>
+                      Mission
+                      <textarea
+                        name="mission"
+                        required
+                        maxLength={1000}
+                        defaultValue={(entity as Team)?.mission}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <RecordFields
+                    kind={modal === "edit" && selected ? selected.kind : modal!}
+                    record={modal === "edit" ? selected : null}
+                    teamId={user.team_id}
+                    chooseTeam={
+                      isRoot ||
+                      (user.role === "finance" &&
+                        ["goal", "allocation", "budget"].includes(
+                          selected?.kind || modal!,
+                        ))
+                    }
+                    teams={teams}
+                    people={people}
+                    authorId={
+                      modal === "edit" && selected ? selected.owner_id : user.id
+                    }
+                    recipient={recipient}
+                  />
                 )}
                 <button className="primary full" disabled={busy}>
                   {busy
                     ? "Saving…"
-                    : modal === "edit" || modal === "skills"
-                      ? "Save changes"
-                      : modal === "recognition"
-                        ? "Send recognition"
-                        : "Publish"}
+                    : modal === "confirm"
+                      ? confirmation?.restore
+                        ? "Restore"
+                        : "Archive"
+                      : ["person", "team"].includes(modal!)
+                        ? entity
+                          ? "Save changes"
+                          : "Create"
+                        : modal === "edit" || modal === "skills"
+                          ? "Save changes"
+                          : modal === "recognition"
+                            ? "Send recognition"
+                            : "Publish"}
                   <ArrowRight size={16} />
                 </button>
               </form>

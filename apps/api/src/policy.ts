@@ -12,13 +12,18 @@ export function canRead(
   team: string | null,
 ): boolean {
   return (
+    u.role === "root" ||
     visibility === "company" ||
     (visibility === "team" && u.team_id === team) ||
     (visibility === "finance" && u.role === "finance")
   );
 }
 export function canManage(u: User, team: string): boolean {
-  return u.role === "finance" || (u.role === "lead" && u.team_id === team);
+  return (
+    u.role === "root" ||
+    u.role === "finance" ||
+    (u.role === "lead" && u.team_id === team)
+  );
 }
 export function money(value: unknown): number {
   const n = Number(value);
@@ -32,4 +37,15 @@ export function money(value: unknown): number {
   )
     throw new Error("Enter an amount between 0 and 100,000,000");
   return Math.round(n * 100) / 100;
+}
+
+export function canEditRecord(
+  u: User,
+  record: { kind: string; owner_id: string; team_id: string },
+): boolean {
+  if (u.role === "root") return true;
+  if (["post", "recognition"].includes(record.kind))
+    return record.owner_id === u.id;
+  if (record.kind === "budget") return u.role === "finance";
+  return canManage(u, record.team_id);
 }

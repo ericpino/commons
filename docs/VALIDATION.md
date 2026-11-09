@@ -5,7 +5,7 @@ Verified on November 9, 2026. These are executed checks, not planned checks.
 | Check                                                    | Result                                                                                                                                                   |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ESLint plus TypeScript checks for both apps              | Passed                                                                                                                                                   |
-| Backend policy tests                                     | 4 passed; visibility, finance restriction, team management and invalid amounts                                                                           |
+| Backend policy tests                                     | 5 passed; visibility, finance restriction, team management, invalid amounts and Root Admin access                                                                           |
 | NestJS production compile                                | Passed                                                                                                                                                   |
 | Next.js 16.4.5 production build                          | Passed                                                                                                                                                   |
 | Real PostgreSQL HTTP integration suite                   | Passed against standalone API and final Docker API                                                                                                       |
@@ -18,6 +18,17 @@ Verified on November 9, 2026. These are executed checks, not planned checks.
 | Production dependency audit                              | 0 reported vulnerabilities                                                                                                                               |
 
 The HTTP integration suite covers unauthenticated access, wrong passwords, cross-team feed isolation, direct record access, employee/lead budget restrictions, unauthorized goal changes, persistent posts, goal progress, budget validation and writes, source-backed Insights, opt-in/out, self-owned expertise, follows, audit visibility and logout.
+
+## CRUD follow-up verification
+
+- All five record types passed create, read, update, archive and restore tests against the rebuilt Docker API and real PostgreSQL.
+- Root Admin passed cross-team record access and people/team management tests. Employee and lead restrictions remain enforced.
+- Archived records are excluded from active workspace results and Insights. Archived accounts cannot sign in; role changes and archival revoke affected sessions.
+- Team archival dependency checks and active Root Admin self-protection passed.
+- A temporary database trigger deliberately rejected an audit insert: the API returned an error and the business change rolled back. The trigger was removed afterward.
+- Browser testing verified goal creation, editing, archival and restoration, with success notifications and persistence after a Docker rebuild.
+- Root `npm run dev` launched both apps using the local `.env.development`; lint, TypeScript checks, policy tests and production Docker builds passed.
+- The local development override uses frontend 3102 and API 4102 with the existing PostgreSQL on 55433, allowing development alongside Docker on 3100.
 
 ## Remaining limits
 

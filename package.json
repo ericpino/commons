@@ -10,7 +10,9 @@
     "test": "npm run test -w apps/api",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "format": "prettier --write apps docs scripts README.md compose.yaml .github eslint.config.mjs"
+    "format": "prettier --write apps docs scripts README.md compose.yaml .github eslint.config.mjs",
+    "dev": "node scripts/dev.mjs",
+    "test:integration": "node scripts/integration.mjs && node scripts/crud-integration.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

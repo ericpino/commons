@@ -23,3 +23,7 @@ Before submission, the candidate should personally review session handling, the 
 ## Verification
 
 See `docs/VALIDATION.md` for executed checks and remaining limits. Tests and build outcomes should be described as tool-verified, not as evidence of human authorship.
+
+## CRUD follow-up
+
+Codex implemented complete record editing/archival/restoration, root directory administration, action success toasts, and a combined development launcher. Verification was expanded to every record kind and directory lifecycle, employee ownership restrictions, root cross-team access, session revocation, archived-source exclusion and a deliberately failed audit insert to check rollback. Browser checks exercised goal create/edit/archive/restore and the corresponding notifications. No candidate manual review is implied by these tool-executed checks.

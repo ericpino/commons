@@ -205,6 +205,7 @@ await call("records/budget-product", {
   method: "PATCH",
   body: budgetBefore.data,
 });
+await call(`records/${post.id}/archive`, { cookie: maya, method: "POST" });
 await call("logout", { cookie: maya, method: "POST" });
 assert.equal((await call("workspace", { cookie: maya })).status, 401);
 console.log(

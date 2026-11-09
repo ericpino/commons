@@ -7,8 +7,14 @@ CREATE TABLE IF NOT EXISTS joins(user_id text REFERENCES users,record_id text RE
 CREATE TABLE IF NOT EXISTS follows(user_id text REFERENCES users,team_id text REFERENCES teams,PRIMARY KEY(user_id,team_id));
 CREATE TABLE IF NOT EXISTS audit(id bigserial PRIMARY KEY,actor_id text REFERENCES users,action text NOT NULL,record_id text,team_id text,detail jsonb NOT NULL DEFAULT '{}',created_at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS records_kind ON records(kind);
-INSERT INTO teams VALUES ('product','Product & Engineering','Make great work easier to discover.'),('operations','Customer Operations','Turn customer signals into lasting improvements.') ON CONFLICT DO NOTHING;
-INSERT INTO users VALUES ('maya','Maya Chen','Product designer','employee','product',ARRAY['Product design','Research']),('alex','Alex Morgan','Engineering lead','lead','product',ARRAY['TypeScript','Architecture']),('jordan','Jordan Lee','Finance partner','finance','operations',ARRAY['Financial planning','Operations']),('sam','Sam Rivera','Customer success specialist','employee','operations',ARRAY['Customer research','Onboarding']) ON CONFLICT DO NOTHING;
+ALTER TABLE records ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK(role IN ('employee','lead','finance','root'));
+INSERT INTO teams(id,name,mission) VALUES ('product','Product & Engineering','Make great work easier to discover.'),('operations','Customer Operations','Turn customer signals into lasting improvements.') ON CONFLICT DO NOTHING;
+INSERT INTO users(id,name,title,role,team_id,skills) VALUES ('maya','Maya Chen','Product designer','employee','product',ARRAY['Product design','Research']),('alex','Alex Morgan','Engineering lead','lead','product',ARRAY['TypeScript','Architecture']),('jordan','Jordan Lee','Finance partner','finance','operations',ARRAY['Financial planning','Operations']),('sam','Sam Rivera','Customer success specialist','employee','operations',ARRAY['Customer research','Onboarding']) ON CONFLICT DO NOTHING;
+INSERT INTO users(id,name,title,role,team_id,skills) VALUES ('root','Root Admin','Workspace administrator','root','product',ARRAY['Workspace administration']) ON CONFLICT DO NOTHING;
 INSERT INTO records(id,kind,title,body,team_id,visibility,owner_id,data) VALUES
 ('post-launch','post','A clearer path from sign-up to first value','Our onboarding research is ready. Five fictional customer interviews helped us simplify the first-run experience. Feedback welcome.','product','company','maya','{}'),
 ('post-private','post','Sprint planning notes','Internal engineering discussion: prioritize accessibility fixes this week.','product','team','alex','{}'),

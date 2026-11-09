@@ -4,7 +4,7 @@
 
 Northstar employees need a low-friction way to make their work discoverable. Team leads need a reliable view of goals and staffing gaps. Finance needs transparent budget records. Connect those workflows through shared source records without turning employee contributions into performance scores.
 
-The first pilot serves one fictional company, two teams, four people, and three permission roles. Optimize for a reviewer completing an entire workflow in minutes, rather than broad enterprise configuration.
+The first pilot serves one fictional company, two teams, five seeded people, and four permission roles. Optimize for a reviewer completing an entire workflow in minutes, rather than broad enterprise configuration.
 
 ## Minimum useful workflows
 
@@ -41,3 +41,9 @@ All eight modules work at a basic level; optional design-pack interactions are e
 ## Success measures for pilot
 
 A reviewer can publish and re-read an update, find a colleague by expertise, follow a team, update a goal with evidence, express interest in an opportunity, change a budget as finance, verify an Insights answer against its records, and inspect its audit event. Permission-negative tests must pass, not merely hidden UI controls.
+
+## CRUD follow-up scope
+
+Implemented after the initial assessment pilot: complete create/read/edit/archive/restore workflows for posts, recognition, goals, allocations and budgets; root-managed people and teams; success toasts; and one root development command. Root is an explicitly requested pilot role with full cross-team access, including private records and finance data. Normal employee, lead and finance boundaries remain in force.
+
+Archival preserves history. Inactive records never contribute to Insights. People and teams have reversible archive states; role/team changes invalidate sessions. Directory entries referenced by active work must be reassigned or archived before a team can be archived. Audit records remain read-only. Email/SMS alerts, fraud detection and approval workflows remain outside this implementation.

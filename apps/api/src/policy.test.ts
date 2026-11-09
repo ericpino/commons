@@ -25,3 +25,10 @@ test("invalid financial values are rejected", () => {
     assert.throws(() => money(v));
   assert.equal(money("12.34"), 12.34);
 });
+
+test("root can read and manage all teams without employee restrictions", () => {
+  const root = { ...employee, role: "root" };
+  assert.equal(canRead(root, "team", "operations"), true);
+  assert.equal(canRead(root, "finance", null), true);
+  assert.equal(canManage(root, "operations"), true);
+});
