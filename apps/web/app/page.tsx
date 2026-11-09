@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, FormEvent } from "react";
+import AllocationCard from "../components/allocation-card";
 import SkillPicker from "../components/skill-picker";
 import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
@@ -696,7 +697,7 @@ export default function Page() {
               </button>
             ) : canCreate ? (
               <button
-                className="primary"
+                className={screen === "Allocation" ? "secondary" : "primary"}
                 onClick={() =>
                   setModal(
                     screen === "Goals"
@@ -1345,89 +1346,27 @@ export default function Page() {
                   capacity.
                 </span>
               </div>
-              <div className="cards-grid two">
+              <div className="cards-grid two allocation-grid">
                 {filtered("allocation").map((r) => (
-                  <article className="card" key={r.id}>
-                    <span className="chip">
-                      OPEN INVITATION · {team(r.team_id)}
-                    </span>
-                    <h2>{r.title}</h2>
-                    <p>{r.body}</p>
-                    <p className="muted">
-                      Owner: {person(r.owner_id)?.name || "Unavailable"}
-                    </p>
-                    <div className="metrics">
-                      <div>
-                        <strong>{r.data.capacity}h</strong>
-                        <span>available / week</span>
-                      </div>
-                      <div>
-                        <strong>{r.data.needed}h</strong>
-                        <span>needed / week</span>
-                      </div>
-                      <div>
-                        <strong>
-                          {Math.max(
-                            0,
-                            Number(r.data.needed) - Number(r.data.capacity),
-                          )}
-                          h
-                        </strong>
-                        <span>capacity gap</span>
-                      </div>
-                    </div>
-                    <p className="muted">
-                      Typical contribution: {r.data.hours} hours / week
-                      <br />
-                      Gap: max({r.data.needed} − {r.data.capacity}, 0) ={" "}
-                      {Math.max(
-                        0,
-                        Number(r.data.needed) - Number(r.data.capacity),
-                      )}{" "}
-                      hours / week
-                      <br />
-                      As of {date(r.updated_at)}
-                    </p>
-                    {(r.owner_id === user.id || isRoot) && (
-                      <details>
-                        <summary>Interested colleagues</summary>
-                        {workspace.interests
-                          .filter((i) => i.record_id === r.id)
-                          .map((i) => (
-                            <p key={i.id}>{i.name}</p>
-                          ))}
-                        {!workspace.interests.some(
-                          (i) => i.record_id === r.id,
-                        ) && <p>No expressions of interest yet.</p>}
-                      </details>
-                    )}
-                    <div className="card-actions">
-                      <button
-                        className={
-                          workspace.joined.includes(r.id)
-                            ? "secondary"
-                            : "primary"
-                        }
-                        disabled={busy || !!r.archived_at}
-                        onClick={() =>
-                          mutate(
-                            `records/${r.id}/join`,
-                            "POST",
-                            undefined,
-                            workspace.joined.includes(r.id)
-                              ? "Interest withdrawn successfully."
-                              : "Interest registered successfully.",
-                          )
-                        }
-                      >
-                        {workspace.joined.includes(r.id)
-                          ? "Withdraw interest"
-                          : "Express interest"}
-                        <Plus size={15} />
-                      </button>
-                      {source(r)}
-                    </div>
-                  </article>
+                  <AllocationCard
+                    key={`${user.id}-${r.id}`}
+                    record={r}
+                    user={user}
+                    team={team}
+                    people={people}
+                    interests={workspace.interests}
+                    joined={workspace.joined.includes(r.id)}
+                    state={{ status: busy ? "saving" : "idle" }}
+                    disabled={busy}
+                    onInterest={() => mutate(`records/${r.id}/join`, "POST")}
+                    onWithdraw={() => mutate(`records/${r.id}/join`, "POST")}
+                    onRetry={() => void refresh()}
+                    onReload={() => void refresh()}
+                    onSource={() => {
+                      setSelected(r);
+                      setModal("source");
+                    }}
+                  />
                 ))}
                 {!filtered("allocation").length &&
                   empty(

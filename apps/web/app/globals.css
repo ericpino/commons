@@ -1524,3 +1524,190 @@ dd {
     width: 100%;
   }
 }
+
+/* Allocation: invitation first, with readable planning evidence. */
+.allocation-grid {
+  align-items: stretch;
+}
+.allocation-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--ink);
+  box-shadow: none;
+}
+.allocation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.allocation-card .chip {
+  color: var(--ink);
+  text-transform: none;
+}
+.allocation-card h2 {
+  min-height: 2.8em;
+}
+.allocation-card .allocation-description {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 0 18px;
+}
+.allocation-planning {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.allocation-planning > p:first-child {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.allocation-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.allocation-numbers dt {
+  font-size: 12px;
+}
+.allocation-numbers dd {
+  margin: 6px 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 19px;
+  font-weight: 650;
+  flex-wrap: wrap;
+}
+.allocation-gap {
+  border-left: 2px solid var(--green);
+  padding-left: 10px;
+}
+.allocation-provenance {
+  display: block;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.allocation-card .text-button {
+  color: var(--green);
+  text-decoration: underline;
+  min-height: 28px;
+}
+.allocation-card .allocation-typical {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin: 12px 0 0;
+}
+.allocation-interest {
+  margin-top: 20px;
+}
+.allocation-primary {
+  width: 100%;
+  min-height: 48px;
+  font-size: 15px;
+  box-shadow: none;
+}
+.allocation-card button:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+.allocation-card button:disabled:not(.primary) {
+  text-decoration: none;
+}
+.allocation-interested {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--paper);
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  min-height: 48px;
+  font-weight: 700;
+}
+.allocation-error {
+  border-left: 3px solid var(--ink);
+  padding: 0 12px;
+}
+.allocation-colleagues {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: auto;
+}
+.allocation-colleagues summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-weight: 600;
+}
+.allocation-colleagues ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.allocation-colleagues li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.allocation-colleagues .avatar {
+  flex-shrink: 0;
+  color: var(--ink);
+}
+.allocation-colleagues li p {
+  margin: 3px 0 8px;
+}
+.allocation-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.allocation-skeleton {
+  height: 40px;
+  border-radius: 6px;
+  background: var(--line);
+}
+.allocation-card :focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .cards-grid.allocation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .allocation-card {
+    padding: 18px;
+  }
+  .allocation-numbers {
+    grid-template-columns: 1fr;
+  }
+  .allocation-numbers > div {
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 8px;
+  }
+  .allocation-numbers dd {
+    min-height: 0;
+  }
+  .allocation-card h2 {
+    min-height: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .allocation-card *,
+  .allocation-card *::before,
+  .allocation-card *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
