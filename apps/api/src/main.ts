@@ -24,7 +24,6 @@ import { Pool, PoolClient } from "pg";
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { Request, Response } from "express";
 import helmet from "helmet";
-import { schema } from "./schema";
 import { canRead, canManage, canEditRecord, money, User } from "./policy";
 
 function text(v: unknown, max = 2000): string {
@@ -38,7 +37,7 @@ class Database implements OnModuleInit {
   async onModuleInit() {
     if (!process.env.DATABASE_URL || !process.env.DEMO_PASSWORD)
       throw new Error("DATABASE_URL and DEMO_PASSWORD are required");
-    await this.pool.query(schema);
+    await this.pool.query("SELECT 1");
   }
   async transaction<T>(fn: (c: PoolClient) => Promise<T>) {
     const c = await this.pool.connect();

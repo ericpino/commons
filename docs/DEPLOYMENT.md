@@ -15,24 +15,20 @@ The requested stack requires a Node runtime for Next.js and NestJS plus PostgreS
 
 ## Separate frontend/API services
 
-Set `API_URL` to the private or public NestJS origin **during Next.js build**, since rewrites are compiled into the route manifest. Set the API's `DATABASE_URL`, `DEMO_PASSWORD`, `WEB_ORIGIN` and `COOKIE_SECURE=true` at runtime. Restrict API exposure if possible. Configure PostgreSQL TLS according to your provider; do not disable certificate validation as a shortcut. Automatic schema bootstrap is suitable for this single-instance pilot only; production should use a migration job.
+Using the root multi-stage `Dockerfile` (or `apps/api/Dockerfile` and `apps/web/Dockerfile`), build each target separately:
 
-## Submission template
+```sh
+docker build --target api -t commons-api:latest .
+docker build --target web --build-arg API_URL=https://api.your-hostname -t commons-web:latest .
+```
 
-Hello [name],
+Set `API_URL` to the private or public NestJS origin **during Next.js build**, since rewrites are compiled into the route manifest. Set the API's `DATABASE_URL`, `DEMO_PASSWORD`, `WEB_ORIGIN` and `COOKIE_SECURE=true` at runtime. Restrict API exposure if possible. Configure PostgreSQL TLS according to your provider; do not disable certificate validation as a shortcut. API startup runs Prisma migrate deploy and non-destructive seeding. Existing databases must first follow the reviewed baseline procedure in [DATABASE.md](DATABASE.md). For production, run migrations as a dedicated deployment job before starting replicas; never run the destructive demo reset.
 
-Thank you for the opportunity. Here is my Commons assessment submission:
+## Continuous integration & security scanning
 
-- Working prototype: [verified HTTPS URL]
-- Repository: [repository URL]
-- Demo sign-in: choose a seeded persona; password shared separately
-- Scope and rationale: `docs/SCOPE.md`
-- Architecture and implementation plan: `docs/IMPLEMENTATION_PLAN.md`
-- AI build log: `docs/AI_BUILD_LOG.md`
+Both GitHub Actions (`.github/workflows/ci.yml`) and GitLab CI (`.gitlab-ci.yml`) run:
 
-The prototype implements all eight modules using Next.js, NestJS and PostgreSQL. Insights uses deterministic calculations with visible source records. The README documents assumptions, permission boundaries and production gaps.
-
-Best,
-Eric
-
-Replace placeholders only with verified details. The candidate must confirm the actual 24-hour deadline from the receipt timestamp. No email has been sent by this project.
+1. **Lint & Typecheck (`lint`)**: `npm run lint` (ESLint + workspace TypeScript checks).
+2. **Semgrep SAST (`semgrep`)**: `semgrep scan --config auto --error` using `semgrep/semgrep:latest` and `.semgrepignore`.
+3. **Unit & Integration Tests (`test`)**: `npm test`, `npm run build`, PostgreSQL 16 integration suites (`npm run test:integration`), and demo seed readiness (`npm run seed:demo` + `node scripts/demo-readiness-integration.mjs`).
+4. **Container Verification (`docker` / `docker-build`)**: Validates `docker-compose.yml` (`docker compose -f docker-compose.yml config -q`) and builds both `api` and `web` image targets.

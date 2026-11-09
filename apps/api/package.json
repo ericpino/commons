@@ -6,20 +6,31 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "test": "node --import tsx --test src/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:baseline": "prisma migrate resolve --applied 20261109000000_initial",
+    "prebuild": "npm run db:generate",
+    "predev": "npm run db:generate && npm run db:migrate && npm run db:seed",
+    "prestart": "npm run db:migrate && npm run db:seed"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "helmet": "^8.0.0",
     "pg": "^8.13.0",
+    "prisma": "7.10.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "helmet": "^8.0.0"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
     "@types/express": "^5.0.0",
+    "@types/pg": "^8.11.0",
     "tsx": "^4.19.0"
   }
 }

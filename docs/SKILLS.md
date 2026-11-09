@@ -8,6 +8,7 @@ Open `/Volumes/Data/projects/commons` as the Codex project. The skills will be a
 
 Example requests:
 
+- `$grill-me Help me prepare to explain this project during my engineering interview.` (see [docs/AI_BUILD_LOG.md](AI_BUILD_LOG.md) for the recorded session summary and resulting architectural/CRUD refinements)
 - `$tdd Add a regression test for cross-team goal permissions, then implement the fix.`
 - `$code-review Review the NestJS authorization and audit paths.`
 - `$diagnosing-bugs Investigate a failed Commons API request.`

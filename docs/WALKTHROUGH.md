@@ -17,7 +17,7 @@
 - `apps/api/src/schema.ts`: relationships, unique joins/follows, no skill ratings or inferred performance.
 - `scripts/integration.mjs`: negative authorization tests with real HTTP and PostgreSQL.
 - `apps/web/app/page.tsx`: module workflows and the source-evidence dialog.
-- `compose.yaml` and `.github/workflows/ci.yml`: reproducibility and continuous checks.
+- `Dockerfile`, `docker-compose.yml` (`compose.yaml`), `.github/workflows/ci.yml`, and `.gitlab-ci.yml`: multi-target container reproducibility and CI/CD pipelines (lint, Semgrep SAST, unit/integration tests, and Docker image builds).
 
 ## Questions to be ready for
 

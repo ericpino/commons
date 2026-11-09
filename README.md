@@ -10,7 +10,7 @@ Requires Docker with Compose:
 docker compose up --build
 ```
 
-Open http://localhost:3000. If those ports are occupied, use `DB_PORT=55433 API_HOST_PORT=4101 WEB_PORT=3100 WEB_ORIGIN=http://localhost:3100 docker compose up --build -d` and open http://localhost:3100. Select a demo persona and use `local-demo-change-me` for this local-only configuration. The database is seeded automatically on first API startup. Startup is idempotent and does not overwrite edited records. PostgreSQL data survives container restarts in `commons_data`.
+Open http://localhost:3000. If those ports are occupied, use `DB_PORT=55433 API_HOST_PORT=4101 WEB_PORT=3100 WEB_ORIGIN=http://localhost:3100 docker compose up --build -d` and open http://localhost:3100. Select a demo persona and use `local-demo-change-me` for this local-only configuration. For an existing database created before Prisma, follow the one-time baseline procedure below before restarting the API. A fresh database is migrated and seeded automatically on first API startup. Startup is idempotent and does not overwrite edited records. PostgreSQL data survives container restarts in `commons_data`.
 
 For a shared deployment, set `DEMO_PASSWORD`, `POSTGRES_PASSWORD`, `WEB_ORIGIN` and `COOKIE_SECURE=true` in the hosting environment. The checked-in defaults are intentionally public **local demo values**, not production secrets. Never reuse them on a public server. See [deployment](docs/DEPLOYMENT.md).
 
@@ -21,6 +21,26 @@ For a shared deployment, set `DEMO_PASSWORD`, `POSTGRES_PASSWORD`, `WEB_ORIGIN` 
 | Jordan Lee  | Finance admin, Operations | Edit budgets, see financial Insights and audit entries              |
 | Root Admin  | Root administrator        | Full cross-team access; manage every record, person and team        |
 | Sam Rivera  | Employee, Operations      | Verify Product-private posts are absent                             |
+
+## Prisma migrations and seeders
+
+Prisma **7.10.1** manages migrations and seeders. `apps/api/prisma/schema.prisma` maps the existing eight tables; SQL migrations retain PostgreSQL checks, the normalized skill index and the skill-validation trigger. API queries, authorization and audit transactions are unchanged.
+
+For a fresh database, set `DATABASE_URL` in your environment or root `.env`, then run:
+
+```sh
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+```
+
+`npm run dev` / API `dev` and `start` apply pending migrations and run the non-destructive seeder before starting. Builds generate Prisma Client. The ordinary seeder initializes an empty workspace with the five-team fictional scenario; an existing workspace is preserved and only missing canonical catalog entries are added. It does not reset sessions or duplicate audit history.
+
+**Existing database upgrade:** back up the database and verify it matches the committed initial schema, including the skill trigger/checks/index. Once verified, run `npm run db:baseline` **once** to mark `20261109000000_initial` as already applied, then `npm run db:migrate`. Do not baseline an empty or mismatched database; baseline records history and does not repair schema drift. This change does not automatically baseline or reset existing data. See [database workflow](docs/DATABASE.md).
+
+For a new schema change: `npm run db:migrate:dev -- --name descriptive_name` against a development database, review the SQL (especially checks/triggers), and commit both schema and migration. Production uses `db:migrate` (`prisma migrate deploy`), never `migrate dev` or `db push`.
+
+`npm run seed:demo` explicitly **clears demo records, audit history and sessions** before rebuilding fictional fixtures. Use only an approved disposable demo database. `npm run test:migrations` requires an empty disposable database and refuses existing tables.
 
 ## Scope and implementation plan
 
@@ -56,7 +76,7 @@ flowchart LR
 
 The frontend stores no authoritative business data in localStorage. Next.js proxies API requests; NestJS authenticates an opaque HttpOnly cookie, applies visibility/role rules, and reads/writes PostgreSQL. Secrets stay on the server. The API URL is a server-side Next.js rewrite setting, established at build time.
 
-The pilot uses typed domain records backed by JSONB for module-specific values. There is no ORM or generated schema layer. `apps/api/src/schema.ts` contains idempotent DDL and fictional seeds. Every SQL value is parameterized. This intentionally small model prioritizes connected workflows over enterprise configuration.
+The pilot uses typed domain records backed by JSONB for module-specific values. Prisma manages the versioned schema migrations and fictional seed data in `apps/api/prisma/`. The API retains its parameterized `pg` queries and transaction boundaries. Every SQL value is parameterized. This intentionally small model prioritizes connected workflows over enterprise configuration.
 
 ### Data model
 
@@ -109,7 +129,105 @@ TEST_API_URL=http://localhost:4102 node --env-file=.env scripts/crud-integration
 
 Policy tests cover visibility, cross-team management and financial validation. HTTP integration checks use real PostgreSQL: authentication, persistent writes, direct-record authorization, budget restrictions, evidence links, opt-in, own profile edits, follows, audit visibility and logout. Integration checks create fictional test records, archive them, retain their audit records, and restore changed seed values. The CRUD suite also injects a temporary failing audit trigger to prove transaction rollback, removing it in a finally block. Run against a disposable database, not a customer deployment.
 
-GitHub Actions runs lint, unit tests, production builds and PostgreSQL integration checks on every push and pull request. It becomes active when the repository is pushed to GitHub.
+GitHub Actions (`.github/workflows/ci.yml`) and GitLab CI (`.gitlab-ci.yml`) run lint and typechecks, Semgrep SAST analysis, unit tests, production builds, PostgreSQL integration and demo readiness checks, and multi-target Docker image verification on every push and pull/merge request.
+
+## Deployment and CI/CD
+
+### 1. Docker Compose host deployment
+
+Provision a host with Docker and Docker Compose (`docker-compose.yml` / `compose.yaml`):
+
+```sh
+export POSTGRES_PASSWORD="<strong-random-db-password>"
+export DEMO_PASSWORD="<strong-random-demo-password>"
+export WEB_ORIGIN="https://your-domain.example.com"
+export COOKIE_SECURE="true"
+export DEMO_MODE="true" # Set to "false" outside demo environments
+
+docker compose -f docker-compose.yml up --build -d
+```
+
+- **Network exposure:** `db` (`5432`) and `api` (`4000`) bind only to host loopback (`127.0.0.1`). Only `web` (`3000`) is published for reverse-proxy ingress, and Next.js proxies `/api/*` requests to `http://api:4000` over the internal Docker network.
+- **HTTPS termination:** Place a reverse proxy (Caddy, Nginx, Cloudflare Tunnel, or load balancer) in front of port `3000`, forwarding `/api` paths and `Cookie` / `Set-Cookie` headers unchanged.
+- **Persistence & seeding:** PostgreSQL data persists across restarts in the `commons_data` volume. To load the clean 5-team Northstar demo dataset after initial startup:
+  ```sh
+  docker compose exec api npm run seed:demo
+  ```
+- **Health verification:** Check `GET /api/health` (through the web origin) or `http://127.0.0.1:4000/health` (on the host) for `{ "status": "ok" }`.
+
+### 2. Multi-stage Dockerfile & separate service hosting
+
+The root `Dockerfile` builds both services from shared workspace dependencies using multi-stage targets (per-service Dockerfiles are also available at `apps/api/Dockerfile` and `apps/web/Dockerfile`):
+
+```sh
+# Build the NestJS API image
+docker build --target api -t commons-api:latest .
+
+# Build the Next.js Web image (API_URL is compiled into Next.js rewrites at build time)
+docker build --target web --build-arg API_URL=https://api.internal.example.com -t commons-web:latest .
+```
+
+When deploying `api` and `web` as separate container services, pass `DATABASE_URL`, `DEMO_PASSWORD`, `WEB_ORIGIN`, `COOKIE_SECURE=true`, and `DEMO_MODE` to the `api` runtime environment. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment and submission checklist.
+
+### 3. CI/CD pipelines (GitHub Actions & GitLab CI)
+
+Both `.github/workflows/ci.yml` and `.gitlab-ci.yml` enforce a four-stage verification pipeline:
+
+| Stage / Job | Checks performed                                                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `lint`      | `npm ci` and `npm run lint` (ESLint across `apps/` and `scripts/` + TypeScript `--noEmit` across workspaces)                     |
+| `semgrep`   | Static application security testing (SAST) via `semgrep/semgrep:latest` (`semgrep scan --config auto --error`)                   |
+| `test`      | API & Web unit tests (`npm test`), production build (`npm run build`), PostgreSQL 16 integration suites, and demo seed readiness |
+| `docker`    | Validates `docker-compose.yml` (`docker compose config -q`) and builds both `--target api` and `--target web` container images   |
+
+## Deployment and CI/CD
+
+### 1. Docker Compose host deployment
+
+Provision a host with Docker and Docker Compose (`docker-compose.yml` / `compose.yaml`):
+
+```sh
+export POSTGRES_PASSWORD="<strong-random-db-password>"
+export DEMO_PASSWORD="<strong-random-demo-password>"
+export WEB_ORIGIN="https://your-domain.example.com"
+export COOKIE_SECURE="true"
+export DEMO_MODE="true" # Set to "false" outside demo environments
+
+docker compose -f docker-compose.yml up --build -d
+```
+
+- **Network exposure:** `db` (`5432`) and `api` (`4000`) bind only to host loopback (`127.0.0.1`). Only `web` (`3000`) is published for reverse-proxy ingress, and Next.js proxies `/api/*` requests to `http://api:4000` over the internal Docker network.
+- **HTTPS termination:** Place a reverse proxy (Caddy, Nginx, Cloudflare Tunnel, or load balancer) in front of port `3000`, forwarding `/api` paths and `Cookie` / `Set-Cookie` headers unchanged.
+- **Persistence & seeding:** PostgreSQL data persists across restarts in the `commons_data` volume. To load the clean 5-team Northstar demo dataset after initial startup:
+  ```sh
+  docker compose exec api npm run seed:demo
+  ```
+- **Health verification:** Check `GET /api/health` (through the web origin) or `http://127.0.0.1:4000/health` (on the host) for `{ "status": "ok" }`.
+
+### 2. Multi-stage Dockerfile & separate service hosting
+
+The root `Dockerfile` builds both services from shared workspace dependencies using multi-stage targets (per-service Dockerfiles are also available at `apps/api/Dockerfile` and `apps/web/Dockerfile`):
+
+```sh
+# Build the NestJS API image
+docker build --target api -t commons-api:latest .
+
+# Build the Next.js Web image (API_URL is compiled into Next.js rewrites at build time)
+docker build --target web --build-arg API_URL=https://api.internal.example.com -t commons-web:latest .
+```
+
+When deploying `api` and `web` as separate container services, pass `DATABASE_URL`, `DEMO_PASSWORD`, `WEB_ORIGIN`, `COOKIE_SECURE=true`, and `DEMO_MODE` to the `api` runtime environment. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment and submission checklist.
+
+### 3. CI/CD pipelines (GitHub Actions & GitLab CI)
+
+Both `.github/workflows/ci.yml` and `.gitlab-ci.yml` enforce a four-stage verification pipeline:
+
+| Stage / Job | Checks performed                                                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `lint`      | `npm ci` and `npm run lint` (ESLint across `apps/` and `scripts/` + TypeScript `--noEmit` across workspaces)                     |
+| `semgrep`   | Static application security testing (SAST) via `semgrep/semgrep:latest` (`semgrep scan --config auto --error`)                   |
+| `test`      | API & Web unit tests (`npm test`), production build (`npm run build`), PostgreSQL 16 integration suites, and demo seed readiness |
+| `docker`    | Validates `docker-compose.yml` (`docker compose config -q`) and builds both `--target api` and `--target web` container images   |
 
 ## Assumptions and limits
 
@@ -127,9 +245,9 @@ Allocation omits Edit/Archive controls because records do not expose a server-pr
 
 **Allocation and Compliance presentation assumption:** the brief leaves these screens open, so Allocation uses existing opportunity cards with owner, capacity arithmetic, dated sources and voluntary interest. Compliance leads with the existing audit trail, readable changed fields and links to available current source records; original audit details remain expandable. The access overview describes the existing policy, not a new permission system.
 
-One company, five seeded users, four roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.
+One company, five teams, ten fictional colleagues plus a demo administrator, four roles, no real personal data. The supplied brief references a separate visual concept pack that was not supplied. The UI is an original interpretation. AI answers are explicitly deterministic, not LLM-backed. Recognition celebrates contribution, never proficiency. All financial amounts are USD. Progress is owner-reported; capacity is manually entered and independent of expressions of interest.
 
-This is a pilot, not a production security claim. Before production: SSO, tenant isolation, per-resource schema constraints, versioned migrations, SQL-level pagination/filtering, login throttling, audit tamper resistance, monitoring, backup/restore validation, granular budget roles, optimistic locking and broader accessibility checks. No deployment or public repository URL is claimed until actually provisioned and verified.
+This is a pilot, not a production security claim. Before production: SSO, tenant isolation, per-resource schema constraints, SQL-level pagination/filtering, login throttling, audit tamper resistance, monitoring, backup/restore validation, granular budget roles, optimistic locking and broader accessibility checks. No deployment or public repository URL is claimed until actually provisioned and verified.
 
 ## Agent skills
 
@@ -145,7 +263,7 @@ The PostgreSQL `skills` table supplies canonical names and enforces case-insensi
 
 The header’s **View as** selector switches authenticated demo personas without signing out. This endpoint is available only with `DEMO_MODE=true` (enabled for the local pilot by Compose and the dev runner); set it to `false` outside the demo. Root remains available as a demo administrator but is excluded from colleague directories and team rosters.
 
-After starting the API once to initialize the schema, load the clean five-team Northstar scenario with:
+After applying migrations, explicitly reset a disposable demo database to the clean five-team Northstar scenario with:
 
 ```sh
 DATABASE_URL=postgresql://commons:local_demo_only@localhost:55433/commons npm run seed:demo

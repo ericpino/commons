@@ -10,10 +10,16 @@
     "test": "npm run test -w apps/api && npm run test -w apps/web",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "format": "prettier --write apps docs scripts README.md compose.yaml .github eslint.config.mjs",
+    "format": "prettier --write apps docs scripts README.md compose.yaml docker-compose.yml .github .gitlab-ci.yml eslint.config.mjs",
     "dev": "node scripts/dev.mjs",
     "test:integration": "node scripts/integration.mjs && node scripts/crud-integration.mjs && node scripts/skills-integration.mjs",
-    "seed:demo": "node scripts/seed-demo.mjs --reset-demo"
+    "seed:demo": "npm run db:seed -w apps/api -- -- --reset-demo",
+    "db:generate": "npm run db:generate -w apps/api",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:migrate:dev": "npm run db:migrate:dev -w apps/api --",
+    "db:seed": "npm run db:seed -w apps/api",
+    "db:baseline": "npm run db:baseline -w apps/api",
+    "test:migrations": "node scripts/prisma-integration.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
