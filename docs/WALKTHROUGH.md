@@ -14,8 +14,8 @@
 
 - `apps/api/src/policy.ts`: company/team/finance visibility and team-scoped management.
 - `apps/api/src/main.ts`: opaque sessions, parameterized SQL, direct record lookup, transactional budget write and audit entry, permission-filtered Insights.
-- `apps/api/src/schema.ts`: relationships, unique joins/follows, no skill ratings or inferred performance.
-- `scripts/integration.mjs`: negative authorization tests with real HTTP and PostgreSQL.
+- `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/`, and `apps/api/prisma/seed.mjs`: relationships, unique joins/follows, skill catalog constraints, and non-destructive seeding without skill ratings or inferred performance.
+- `scripts/integration.mjs` and `postman-collection/Commons.postman_collection.json`: negative authorization tests with real HTTP/PostgreSQL and interactive Postman requests covering all 25 API routes.
 - `apps/web/app/page.tsx`: module workflows and the source-evidence dialog.
 - `Dockerfile`, `docker-compose.yml` (`compose.yaml`), `.github/workflows/ci.yml`, and `.gitlab-ci.yml`: multi-target container reproducibility and CI/CD pipelines (lint, Semgrep SAST, unit/integration tests, and Docker image builds).
 

@@ -4,6 +4,7 @@ node_modules/
 **/dist/
 .local-backups/
 package-lock.json
+deploy/
 postman/
 postman-collection/
 

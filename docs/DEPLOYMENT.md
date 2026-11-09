@@ -7,9 +7,9 @@ The requested stack requires a Node runtime for Next.js and NestJS plus PostgreS
 ## Container host
 
 1. Provision a host with Docker Compose or use equivalent container services. The assessment says not to spend personal money; use an existing authorized host or a provider's suitable free tier after checking its current terms.
-2. Set `DEMO_PASSWORD` and `POSTGRES_PASSWORD` to new random values via the deployment environment. Set `WEB_ORIGIN=https://your-hostname` and `COOKIE_SECURE=true`.
-3. Run `docker compose up --build -d`. Persist the database volume. Do not expose PostgreSQL or the NestJS port publicly; Compose binds both to loopback.
-4. Put HTTPS termination in front of port 3000. Preserve `/api` paths and cookies. Next.js rewrites proxy to `http://api:4000` inside the Docker network.
+2. Set `DEMO_PASSWORD` and `POSTGRES_PASSWORD` to new random values via the deployment environment. Set `WEB_ORIGIN=https://commons.ericpino.com` and `COOKIE_SECURE=true`.
+3. Run `docker compose up --build -d` (or use `docker-compose.letsencrypt.yml` via `./scripts/init-letsencrypt.sh` for built-in Nginx + Certbot). Persist the database volume. Do not expose PostgreSQL or the NestJS port publicly; Compose binds both to loopback.
+4. Put HTTPS termination in front of port 3005 (mapped to container port 3000) for `commons.ericpino.com` (either via the included `docker-compose.letsencrypt.yml` + `deploy/nginx/commons.ericpino.com.conf`, or host Nginx + `sudo certbot --nginx -d commons.ericpino.com` with `deploy/nginx/host-nginx.conf`). Preserve `/api` paths and cookies. Next.js rewrites proxy to `http://api:4000` inside the Docker network.
 5. Verify `/api/health`, sign in as each persona, create and re-read an update, change a budget, inspect sources and audit, restart services, and confirm the write remains.
 6. Share the public HTTPS URL, repository URL, and demo password with reviewers. Use only fictional data.
 

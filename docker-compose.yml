@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_demo_only}
       POSTGRES_DB: commons
     ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-55433}:5432"
     volumes:
       - commons_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
     environment:
       DATABASE_URL: postgresql://commons:${POSTGRES_PASSWORD:-local_demo_only}@db:5432/commons
       DEMO_PASSWORD: ${DEMO_PASSWORD:-local-demo-change-me}
-      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3005}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       API_PORT: 4000
       DEMO_MODE: ${DEMO_MODE:-true}
@@ -32,7 +32,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${API_HOST_PORT:-4000}:4000"
+      - "127.0.0.1:${API_HOST_PORT:-4101}:4000"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health || exit 1"]
       interval: 5s
@@ -49,7 +49,7 @@ services:
     environment:
       API_URL: ${INTERNAL_API_URL:-http://api:4000}
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "${WEB_PORT:-3005}:3000"
     depends_on:
       api:
         condition: service_healthy

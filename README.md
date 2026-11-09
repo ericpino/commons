@@ -141,20 +141,26 @@ Provision a host with Docker and Docker Compose (`docker-compose.yml` / `compose
 ```sh
 export POSTGRES_PASSWORD="<strong-random-db-password>"
 export DEMO_PASSWORD="<strong-random-demo-password>"
-export WEB_ORIGIN="https://your-domain.example.com"
+export WEB_ORIGIN="https://commons.ericpino.com"
 export COOKIE_SECURE="true"
 export DEMO_MODE="true" # Set to "false" outside demo environments
 
 docker compose -f docker-compose.yml up --build -d
 ```
 
-- **Network exposure:** `db` (`5432`) and `api` (`4000`) bind only to host loopback (`127.0.0.1`). Only `web` (`3000`) is published for reverse-proxy ingress, and Next.js proxies `/api/*` requests to `http://api:4000` over the internal Docker network.
-- **HTTPS termination:** Place a reverse proxy (Caddy, Nginx, Cloudflare Tunnel, or load balancer) in front of port `3000`, forwarding `/api` paths and `Cookie` / `Set-Cookie` headers unchanged.
+- **Network exposure:** `db` (`55433` -> `5432`) and `api` (`4101` -> `4000`) bind only to host loopback (`127.0.0.1`). `web` (`3005` -> `3000`) is published for reverse-proxy ingress, and Next.js proxies `/api/*` requests to `http://api:4000` over the internal Docker network.
+- **Let's Encrypt / Certbot HTTPS (`commons.ericpino.com`):**
+  - **Option A — Dockerized Nginx + Certbot (`docker-compose.letsencrypt.yml`):** Point the DNS `A` record for `commons.ericpino.com` to your server's public IP, set `POSTGRES_PASSWORD` and `DEMO_PASSWORD` in `.env`, and run:
+    ```sh
+    LETSENCRYPT_EMAIL="eric@posible.net" ./scripts/init-letsencrypt.sh
+    ```
+    This starts `db`, `api`, `web`, `nginx` (using [`deploy/nginx/commons.ericpino.com.conf`](deploy/nginx/commons.ericpino.com.conf)), obtains the certificate for `commons.ericpino.com`, and runs automatic 12-hour renewals.
+  - **Option B — Host Nginx + Certbot on Ubuntu 24.04:** Copy [`deploy/nginx/host-nginx.conf`](deploy/nginx/host-nginx.conf) to `/etc/nginx/sites-available/commons.ericpino.com`, enable it, and run `sudo certbot --nginx -d commons.ericpino.com`.
 - **Persistence & seeding:** PostgreSQL data persists across restarts in the `commons_data` volume. To load the clean 5-team Northstar demo dataset after initial startup:
   ```sh
   docker compose exec api npm run seed:demo
   ```
-- **Health verification:** Check `GET /api/health` (through the web origin) or `http://127.0.0.1:4000/health` (on the host) for `{ "status": "ok" }`.
+- **Health verification:** Check `GET /api/health` (through the web origin) or `http://127.0.0.1:4101/health` (on the host) for `{ "status": "ok" }`.
 
 ### 2. Multi-stage Dockerfile & separate service hosting
 

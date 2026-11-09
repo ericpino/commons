@@ -66,7 +66,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate Docker Compose configuration
-        run: docker compose -f docker-compose.yml config -q
+        run: |
+          docker compose -f docker-compose.yml config -q
+          POSTGRES_PASSWORD=ci DEMO_PASSWORD=ci docker compose -f docker-compose.letsencrypt.yml config -q
       - uses: docker/setup-buildx-action@v3
       - name: Build API image
         uses: docker/build-push-action@v6

@@ -10,7 +10,7 @@
     "test": "npm run test -w apps/api && npm run test -w apps/web",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run dev -w apps/web",
-    "format": "prettier --write apps docs scripts README.md compose.yaml docker-compose.yml .github .gitlab-ci.yml eslint.config.mjs",
+    "format": "prettier --write apps docs scripts README.md compose.yaml docker-compose.yml docker-compose.letsencrypt.yml .github .gitlab-ci.yml eslint.config.mjs",
     "dev": "node scripts/dev.mjs",
     "test:integration": "node scripts/integration.mjs && node scripts/crud-integration.mjs && node scripts/skills-integration.mjs",
     "seed:demo": "npm run db:seed -w apps/api -- -- --reset-demo",
