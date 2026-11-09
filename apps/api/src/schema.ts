@@ -1,0 +1,22 @@
+export const schema = `
+CREATE TABLE IF NOT EXISTS teams(id text PRIMARY KEY,name text NOT NULL,mission text NOT NULL);
+CREATE TABLE IF NOT EXISTS users(id text PRIMARY KEY,name text NOT NULL,title text NOT NULL,role text NOT NULL CHECK(role IN ('employee','lead','finance')),team_id text REFERENCES teams,skills text[] NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS sessions(token text PRIMARY KEY,user_id text REFERENCES users,expires_at timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS records(id text PRIMARY KEY,kind text NOT NULL CHECK(kind IN ('post','recognition','goal','allocation','budget')),title text NOT NULL,body text NOT NULL DEFAULT '',team_id text REFERENCES teams,visibility text NOT NULL CHECK(visibility IN ('company','team','finance')),owner_id text REFERENCES users,data jsonb NOT NULL DEFAULT '{}',created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS joins(user_id text REFERENCES users,record_id text REFERENCES records,PRIMARY KEY(user_id,record_id));
+CREATE TABLE IF NOT EXISTS follows(user_id text REFERENCES users,team_id text REFERENCES teams,PRIMARY KEY(user_id,team_id));
+CREATE TABLE IF NOT EXISTS audit(id bigserial PRIMARY KEY,actor_id text REFERENCES users,action text NOT NULL,record_id text,team_id text,detail jsonb NOT NULL DEFAULT '{}',created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS records_kind ON records(kind);
+INSERT INTO teams VALUES ('product','Product & Engineering','Make great work easier to discover.'),('operations','Customer Operations','Turn customer signals into lasting improvements.') ON CONFLICT DO NOTHING;
+INSERT INTO users VALUES ('maya','Maya Chen','Product designer','employee','product',ARRAY['Product design','Research']),('alex','Alex Morgan','Engineering lead','lead','product',ARRAY['TypeScript','Architecture']),('jordan','Jordan Lee','Finance partner','finance','operations',ARRAY['Financial planning','Operations']),('sam','Sam Rivera','Customer success specialist','employee','operations',ARRAY['Customer research','Onboarding']) ON CONFLICT DO NOTHING;
+INSERT INTO records(id,kind,title,body,team_id,visibility,owner_id,data) VALUES
+('post-launch','post','A clearer path from sign-up to first value','Our onboarding research is ready. Five fictional customer interviews helped us simplify the first-run experience. Feedback welcome.','product','company','maya','{}'),
+('post-private','post','Sprint planning notes','Internal engineering discussion: prioritize accessibility fixes this week.','product','team','alex','{}'),
+('recognition-sam','recognition','Thank you for connecting the dots','Sam brought customer questions into our research and helped us see the full picture.','operations','company','maya','{"recipient":"sam","badge":"Collaboration"}'),
+('goal-onboarding','goal','Make onboarding feel effortless','Reduce time to first value through research and simpler setup.','product','company','alex','{"progress":65,"target":"Pilot onboarding release","evidence":"Research synthesis and prototype review completed"}'),
+('goal-support','goal','Build a shared customer knowledge base','Help colleagues discover reusable answers.','operations','company','jordan','{"progress":40,"target":"Publish 20 onboarding guides","evidence":"8 guides published"}'),
+('allocation-research','allocation','Help shape the next onboarding experience','An invitation to collaborate on research synthesis. Join if this matches your interests.','product','company','alex','{"hours":8,"capacity":24,"needed":16}'),
+('allocation-guides','allocation','Share your customer expertise','Help turn customer questions into practical guides.','operations','company','jordan','{"hours":4,"capacity":16,"needed":12}'),
+('budget-product','budget','Product pilot budget','Design research, infrastructure and pilot operations.','product','finance','jordan','{"planned":18000,"actual":11200,"driver":"Research: 4200; infrastructure: 3000; pilot operations: 4000","currency":"USD"}'),
+('budget-operations','budget','Customer enablement budget','Knowledge base and onboarding materials.','operations','finance','jordan','{"planned":10000,"actual":6400,"driver":"Content: 4000; tooling: 2400","currency":"USD"}') ON CONFLICT DO NOTHING;
+`;

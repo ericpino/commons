@@ -1,0 +1,23 @@
+{
+  "name": "commons",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "lint": "eslint apps scripts && npm run typecheck --workspaces",
+    "test": "npm run test -w apps/api",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "format": "prettier --write apps docs scripts README.md compose.yaml .github eslint.config.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "eslint": "^10.14.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.72.1",
+    "prettier": "^3.4.0"
+  }
+}
