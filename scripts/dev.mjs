@@ -10,6 +10,7 @@ const apiPort = process.env.API_PORT || "4000",
   webPort = process.env.WEB_PORT || "3000";
 const env = {
   ...process.env,
+  DEMO_MODE: process.env.DEMO_MODE || "true",
   DATABASE_URL:
     process.env.DATABASE_URL ||
     "postgresql://commons:local_demo_only@localhost:5432/commons",

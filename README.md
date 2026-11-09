@@ -126,3 +126,19 @@ Matt Pocock’s published engineering and productivity skills are installed loca
 `GET /api/skills` through the frontend (`GET /skills` on NestJS) requires an authenticated session and returns `{ skills: [{ id, name }] }`, sorted by name. The expertise and Root person forms fetch this catalog and filter suggestions locally, with keyboard selection and removable skill chips. Only selected suggestions are submitted.
 
 The PostgreSQL `skills` table supplies canonical names and enforces case-insensitive uniqueness. Existing expertise is imported without discarding names; casing and duplicate entries are normalized. Both profile and Root person writes validate against the catalog, accept case-insensitive matches, reject unknown values, and store canonical names. A database trigger also rejects unknown names and more than 12 selections on user writes. The existing `users.skills` array remains compatible with directory search and audit history. New catalog entries are managed through database migrations for this pilot; no free-text creation is exposed in the picker.
+
+### Submission demo
+
+The header’s **View as** selector switches authenticated demo personas without signing out. This endpoint is available only with `DEMO_MODE=true` (enabled for the local pilot by Compose and the dev runner); set it to `false` outside the demo. Root remains available as a demo administrator but is excluded from colleague directories and team rosters.
+
+After starting the API once to initialize the schema, load the clean five-team Northstar scenario with:
+
+```sh
+DATABASE_URL=postgresql://commons:local_demo_only@localhost:55433/commons npm run seed:demo
+```
+
+This deliberately replaces workspace records, people, teams, sessions and audit history. Back up first. It creates 10 fictional colleagues, three measured goals, a 20-hour weekly capacity gap, an explained budget overspend and six explicitly marked fictional audit events at different dates. Tests should use a separate database, never the submission database. The pre-cleanup local database backup is under `.local-backups/` and is excluded from Git.
+
+Goals calculate progress from completed/total units and retain dated evidence. Insights provides five questions (six for Finance/Root), per-answer coverage and expandable arithmetic with permission-filtered source records. Team pages show structure, posts, shared work and voluntary engagement. Allocation owners and Root can see named expressions of interest. Compliance includes readable subjects and an access-policy review table. Success toasts dismiss after 4.5 seconds.
+
+For the seeded readiness checks, point `TEST_API_URL` at an isolated API running with `DEMO_MODE=true`, seed its database, then run `node scripts/demo-readiness-integration.mjs` with `DEMO_PASSWORD` set. The existing integration suites mutate fixtures and must also use that isolated database.

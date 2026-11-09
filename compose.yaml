@@ -24,6 +24,7 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       API_PORT: 4000
+      DEMO_MODE: ${DEMO_MODE:-true}
     depends_on:
       db:
         condition: service_healthy

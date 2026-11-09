@@ -61,3 +61,11 @@ DB_PORT=55433 API_HOST_PORT=4101 WEB_PORT=3100 WEB_ORIGIN=http://localhost:3100 
 ## Skills catalog follow-up
 
 Verified authenticated GET catalog access, case-insensitive normalization, deduplication, unknown/null/over-limit rejection through both profile and Root APIs, and clearing/restoring expertise. Direct PostgreSQL writes rejected unknown user skills and case-duplicate catalog names. All three HTTP integration suites and five policy tests passed. Lint, TypeScript and Docker production builds passed. Browser verification covered searching, keyboard selection, saving, reopening persisted selections, removing a selection and saving again; original demo expertise was restored afterward.
+
+## Submission readiness pass
+
+The new readiness integration script passed against `commons_readiness_test`, a separate PostgreSQL database: switching personas changes API permissions, employee Insights has five answers and Finance six, each answer has coverage and arithmetic, goal progress is derived from measurement units, invalid dates/counts are rejected, only opportunity owners/Root see interested names, and audit subjects are readable. All existing HTTP suites and policy tests also passed; the submission database was not used for these mutations.
+
+The submission database was backed up before replacement and reseeded with five teams, ten colleagues, three measured goals, a 20-hour weekly capacity gap, explained overspend, and six marked fictional audit events with distinct dates. Root is excluded from People/Organization rosters. The backup is local and Git-ignored.
+
+Browser checks confirmed header switching (including Priya), Finance-only budget access, five/six Insights cards and expanded arithmetic, team drill-through with permission-filtered posts, dated goal measurements, clean readable audit history and the access review table. Employee Budget has no archive checkbox. Toasts disappeared automatically. The demo-disabled API check returned 404 for persona switching and preserved the employee identity. Final Docker production build passed.

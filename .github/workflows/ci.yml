@@ -25,7 +25,10 @@ jobs:
       - run: |
           npm run start -w apps/api > /tmp/api.log 2>&1 &
           npm run test:integration
+          npm run seed:demo
+          node scripts/demo-readiness-integration.mjs
         env:
           DATABASE_URL: postgresql://commons:ci_only@localhost:5432/commons
           DEMO_PASSWORD: ci-demo-password
+          DEMO_MODE: "true"
           WEB_ORIGIN: http://localhost:3000

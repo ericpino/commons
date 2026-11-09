@@ -126,6 +126,51 @@ class Api {
     });
     return { ok: true };
   }
+  @Post("demo/view-as") async viewAs(
+    @Req() req: Request,
+    @Body() b: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.user(req);
+    if (process.env.DEMO_MODE !== "true") throw new NotFoundException();
+    if (
+      ![
+        "maya",
+        "alex",
+        "jordan",
+        "sam",
+        "priya",
+        "leo",
+        "nina",
+        "owen",
+        "imani",
+        "ella",
+        "root",
+      ].includes(b.userId)
+    )
+      throw new BadRequestException("Choose a demo persona");
+    const target = (
+      await this.db.pool.query(
+        "SELECT id FROM users WHERE id=$1 AND archived_at IS NULL",
+        [b.userId],
+      )
+    ).rows[0];
+    if (!target) throw new NotFoundException();
+    await this.logout(req, res);
+    const token = randomBytes(32).toString("hex");
+    await this.db.pool.query(
+      "INSERT INTO sessions VALUES($1,$2,now()+interval '8 hours')",
+      [token, target.id],
+    );
+    res.cookie("commons_session", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.COOKIE_SECURE === "true",
+      maxAge: 8 * 3600 * 1000,
+      path: "/",
+    });
+    return { ok: true };
+  }
   @Post("logout") async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -158,6 +203,18 @@ class Api {
     ]);
     return {
       user: u,
+      demoMode: process.env.DEMO_MODE === "true",
+      interests: (
+        await this.db.pool.query(
+          "SELECT j.record_id,u.id,u.name FROM joins j JOIN users u ON u.id=j.user_id JOIN records r ON r.id=j.record_id WHERE u.archived_at IS NULL AND r.archived_at IS NULL AND (r.owner_id=$1 OR $2='root')",
+          [u.id, u.role],
+        )
+      ).rows,
+      engagement: (
+        await this.db.pool.query(
+          "SELECT t.id, (SELECT count(*)::int FROM follows f JOIN users u ON u.id=f.user_id WHERE f.team_id=t.id AND u.archived_at IS NULL AND u.role<>'root') AS followers FROM teams t WHERE t.archived_at IS NULL",
+        )
+      ).rows,
       records: records.rows.filter(
         (r) =>
           canRead(u, r.visibility, r.team_id) &&
@@ -251,11 +308,41 @@ class Api {
       data = { recipient, badge: "Collaboration" };
     }
     if (kind === "goal") {
-      const progress = amount("progress", 0);
+      const measured =
+        b.completed !== undefined ||
+        b.total !== undefined ||
+        old.total !== undefined;
+      const completed = measured ? amount("completed", 0) : undefined;
+      const total = measured ? amount("total", 1) : undefined;
+      if (measured && (!total || completed! > total))
+        throw new BadRequestException(
+          "Completed must be no greater than a positive total",
+        );
+      const progress = measured
+        ? Math.round((completed! / total!) * 10000) / 100
+        : amount("progress", 0);
+      const evidenceDate = text(
+        value("evidenceDate", new Date().toISOString().slice(0, 10)),
+        10,
+      );
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(evidenceDate) ||
+        !Number.isFinite(Date.parse(evidenceDate)) ||
+        new Date(evidenceDate).toISOString().slice(0, 10) !== evidenceDate
+      )
+        throw new BadRequestException("Use a valid evidence date");
       if (progress > 100)
         throw new BadRequestException("Progress must be 0–100");
       data = {
         progress,
+        ...(measured
+          ? {
+              completed,
+              total,
+              unit: text(value("unit", "acceptance checks"), 100),
+            }
+          : {}),
+        evidenceDate,
         target: text(value("target", ""), 200),
         evidence: text(value("evidence", "No evidence recorded yet"), 1000),
       };
@@ -661,43 +748,137 @@ class Api {
     const u = await this.user(req);
     const all = (
       await this.db.pool.query(
-        "SELECT * FROM records WHERE archived_at IS NULL AND kind IN ('goal','budget','allocation') ORDER BY title",
+        "SELECT * FROM records WHERE archived_at IS NULL ORDER BY title",
       )
     ).rows.filter((r) => canRead(u, r.visibility, r.team_id));
+    const teamCount = Number(
+      (
+        await this.db.pool.query(
+          "SELECT count(*) FROM teams WHERE archived_at IS NULL",
+        )
+      ).rows[0].count,
+    );
     const goals = all.filter((r) => r.kind === "goal"),
+      allocations = all.filter((r) => r.kind === "allocation"),
       budgets = all.filter((r) => r.kind === "budget"),
-      allocations = all.filter((r) => r.kind === "allocation");
+      updates = all.filter((r) => r.kind === "post");
     const sum = (rows: any[], key: string) =>
       rows.reduce((n, r) => n + Number(r.data[key] || 0), 0);
+    const coverage = (rows: any[]) =>
+      `${new Set(rows.map((r) => r.team_id)).size} of ${teamCount} active teams represented in visible records. Missing or restricted records are excluded, not treated as zero.`;
+    const answer = (
+      title: string,
+      value: string,
+      explanation: string,
+      sources: any[],
+      arithmetic: string,
+    ) => ({
+      title,
+      value,
+      explanation,
+      sources,
+      arithmetic,
+      coverage: coverage(sources),
+    });
+    const gaps = allocations.map((r) =>
+      Math.max(0, Number(r.data.needed) - Number(r.data.capacity)),
+    );
+    const totalGap = gaps.reduce((a, b) => a + b, 0);
+    const evidenceCutoff = Date.now() - 14 * 86400000;
+    const stale = goals.filter(
+      (r) =>
+        !r.data.evidenceDate ||
+        Date.parse(r.data.evidenceDate) < evidenceCutoff,
+    );
+    const recent = updates.filter(
+      (r) => Date.parse(r.updated_at) >= Date.now() - 7 * 86400000,
+    );
+    const goalArithmetic = goals
+      .map(
+        (r) =>
+          `${r.title}: ${r.data.progress}%${r.data.total ? ` (${r.data.completed} / ${r.data.total} ${r.data.unit})` : " (owner estimate)"}`,
+      )
+      .join("; ");
     return {
       asOf: new Date().toISOString(),
       mode: "Deterministic source-backed summaries; no AI model is called.",
       coverage:
-        "Only records visible to your role. Goal progress is owner-reported, not independently verified. Staffing capacity is a team planning estimate; invitations do not assign people.",
+        "All answers respect your current persona’s access. Planning estimates are not individual performance scores.",
       answers: [
-        {
-          title: "How is our shared work progressing?",
-          value: goals.length
+        answer(
+          "How is our shared work progressing?",
+          goals.length
             ? `${Math.round(sum(goals, "progress") / goals.length)}%`
             : "No data",
-          explanation: `Unweighted average of ${goals.length} visible goals. Each goal contributes equally.`,
-          sources: goals,
-        },
-        {
-          title: "Where do we need more capacity?",
-          value: `${allocations.reduce((n, r) => n + Math.max(0, r.data.needed - r.data.capacity), 0)} hrs`,
-          explanation:
-            "Sum of max(needed − available, 0) across visible opportunities, per week.",
-          sources: allocations,
-        },
+          `Unweighted average of ${goals.length} visible goals; rounded to the nearest whole percent. Owner-reported evidence.`,
+          goals,
+          `${goalArithmetic}. (${goals.map((r) => r.data.progress).join(" + ") || "no values"}) ÷ ${goals.length} = ${goals.length ? (sum(goals, "progress") / goals.length).toFixed(2) : "not available"}% before rounding.`,
+        ),
+        answer(
+          "Where do we need more capacity?",
+          allocations.length ? `${totalGap} hrs/week` : "No data",
+          "Weekly shortfalls are added per opportunity; spare capacity on another opportunity is not assumed transferable. Interest does not commit hours.",
+          allocations,
+          allocations
+            .map(
+              (r, i) =>
+                `${r.title}: max(${r.data.needed} needed − ${r.data.capacity} available, 0) = ${gaps[i]} hrs`,
+            )
+            .join("; ") +
+            `. Total = ${gaps.join(" + ")} = ${totalGap} hrs/week.`,
+        ),
+        answer(
+          "Which goals need fresh evidence?",
+          goals.length ? `${stale.length} of ${goals.length}` : "No data",
+          "Goals with missing evidence dates or evidence older than 14 days. This is a documentation prompt, not a judgment of progress.",
+          goals,
+          goals
+            .map(
+              (r) =>
+                `${r.title}: ${r.data.evidenceDate || "date missing"} — ${stale.includes(r) ? "needs refresh" : "within 14 days"}`,
+            )
+            .join("; "),
+        ),
+        answer(
+          "Where can colleagues contribute?",
+          allocations.length
+            ? `${allocations.filter((r, i) => gaps[i] > 0).length} opportunities`
+            : "No data",
+          "Visible opportunities with positive weekly capacity gaps; colleagues may express interest voluntarily.",
+          allocations,
+          allocations
+            .map(
+              (r, i) =>
+                `${r.title}: ${gaps[i]} hrs/week gap — ${gaps[i] > 0 ? "open capacity need" : "no shortfall"}`,
+            )
+            .join("; "),
+        ),
+        answer(
+          "Which teams shared an update this week?",
+          `${new Set(recent.map((r) => r.team_id)).size} of ${teamCount} teams`,
+          "Teams with a visible update created or edited in the last 7 days. Absence of an update does not mean absence of work.",
+          recent,
+          recent
+            .map((r) => `${r.title}: ${r.updated_at.toISOString()}`)
+            .join("; ") || "No visible updates in the last 7 days.",
+        ),
         ...(["finance", "root"].includes(u.role)
           ? [
-              {
-                title: "What remains in the pilot budget?",
-                value: `$${(sum(budgets, "planned") - sum(budgets, "actual")).toLocaleString("en-US")}`,
-                explanation: `USD planned (${sum(budgets, "planned")}) − actual (${sum(budgets, "actual")}). Negative means overspend.`,
-                sources: budgets,
-              },
+              answer(
+                "What remains in the pilot budget?",
+                budgets.length
+                  ? `$${(sum(budgets, "planned") - sum(budgets, "actual")).toLocaleString("en-US")}`
+                  : "No data",
+                "USD planned minus actual. Negative means overspend; review the source justification.",
+                budgets,
+                budgets
+                  .map(
+                    (r) =>
+                      `${r.title}: $${r.data.planned} − $${r.data.actual} = $${r.data.planned - r.data.actual}`,
+                  )
+                  .join("; ") +
+                  `. Total: $${sum(budgets, "planned")} − $${sum(budgets, "actual")} = $${sum(budgets, "planned") - sum(budgets, "actual")}.`,
+              ),
             ]
           : []),
       ],
@@ -706,7 +887,7 @@ class Api {
   @Get("audit") async audits(@Req() req: Request) {
     const u = await this.user(req);
     const { rows } = await this.db.pool.query(
-      "SELECT a.*,u.name AS actor FROM audit a JOIN users u ON u.id=a.actor_id ORDER BY a.id DESC LIMIT 500",
+      "SELECT a.*,u.name AS actor,CASE WHEN r.id IS NOT NULL THEN initcap(r.kind)||': '||r.title WHEN subject.id IS NOT NULL THEN subject.name||CASE WHEN a.action LIKE '%expertise%' THEN '’s expertise' ELSE ' · profile' END WHEN t.id IS NOT NULL THEN 'Team: '||t.name ELSE 'Workspace activity' END AS record_label FROM audit a JOIN users u ON u.id=a.actor_id LEFT JOIN records r ON r.id=a.record_id LEFT JOIN users subject ON subject.id=a.record_id LEFT JOIN teams t ON t.id=a.record_id ORDER BY a.id DESC LIMIT 500",
     );
     return rows.filter(
       (r) =>

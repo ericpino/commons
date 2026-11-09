@@ -112,15 +112,49 @@ export default function RecordFields({
             />
           </label>
           <label>
-            Progress (%)
+            Completed units
             <input
-              name="progress"
+              name="completed"
               type="number"
               min="0"
-              max="100"
               step="0.01"
               required
-              defaultValue={data.progress ?? 0}
+              defaultValue={data.completed ?? data.progress ?? 0}
+            />
+          </label>
+          <label>
+            Total units
+            <input
+              name="total"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              defaultValue={data.total ?? 100}
+            />
+          </label>
+          <label>
+            Measurement unit
+            <input
+              name="unit"
+              required
+              maxLength={100}
+              defaultValue={data.unit || "acceptance checks"}
+            />
+          </label>
+          <p>
+            Progress is calculated as completed ÷ total × 100. Evidence should
+            explain which units are complete.
+          </p>
+          <label>
+            Evidence date
+            <input
+              name="evidenceDate"
+              type="date"
+              required
+              defaultValue={
+                data.evidenceDate || new Date().toISOString().slice(0, 10)
+              }
             />
           </label>
           <label>
@@ -139,7 +173,7 @@ export default function RecordFields({
           {[
             ["capacity", "Available capacity (hours/week)", 0],
             ["needed", "Needed (hours/week)", 8],
-            ["hours", "Suggested contribution (hours/week)", 4],
+            ["hours", "Typical contribution (hours/week)", 4],
           ].map(([key, label, fallback]) => (
             <label key={String(key)}>
               {label}

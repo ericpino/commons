@@ -12,7 +12,8 @@
     "dev:web": "npm run dev -w apps/web",
     "format": "prettier --write apps docs scripts README.md compose.yaml .github eslint.config.mjs",
     "dev": "node scripts/dev.mjs",
-    "test:integration": "node scripts/integration.mjs && node scripts/crud-integration.mjs && node scripts/skills-integration.mjs"
+    "test:integration": "node scripts/integration.mjs && node scripts/crud-integration.mjs && node scripts/skills-integration.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs --reset-demo"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -105,7 +105,9 @@ assert.equal(
       cookie: alex,
       method: "PATCH",
       body: {
-        progress: 72,
+        completed: 72,
+        total: 100,
+        unit: "acceptance checks",
         evidence: "Integration check: acceptance criteria reviewed",
       },
     })

@@ -53,6 +53,9 @@ type Team = {
 };
 type Workspace = {
   user: Person;
+  demoMode: boolean;
+  interests: { record_id: string; id: string; name: string }[];
+  engagement: { id: string; followers: number }[];
   people: Person[];
   teams: Team[];
   records: Work[];
@@ -64,6 +67,8 @@ type Insight = {
   title: string;
   value: string;
   explanation: string;
+  arithmetic: string;
+  coverage: string;
   sources: Work[];
 };
 type Audit = {
@@ -71,6 +76,7 @@ type Audit = {
   actor: string;
   action: string;
   record_id: string;
+  record_label: string;
   created_at: string;
   detail: unknown;
 };
@@ -147,6 +153,7 @@ const date = (value: string) =>
 export default function Page() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
     [demo, setDemo] = useState<Person[]>([]),
+    [teamPage, setTeamPage] = useState<string | null>(null),
     [screen, setScreen] = useState("Home"),
     [query, setQuery] = useState(""),
     [error, setError] = useState(""),
@@ -171,6 +178,12 @@ export default function Page() {
       title: string;
       restore: boolean;
     } | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 4500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const dataRequest = useRef(0);
   const busyRef = useRef(busy);
   busyRef.current = busy;
   useEffect(() => {
@@ -226,14 +239,30 @@ export default function Page() {
   }, []);
   useEffect(() => {
     if (!workspace) return;
-    if (screen === "Insights")
+    const request = ++dataRequest.current;
+    if (screen === "Insights") {
+      setInsights(null);
       api<typeof insights>("insights")
-        .then(setInsights)
-        .catch((e) => setError(e.message));
-    if (screen === "Compliance")
+        .then((value) => {
+          if (request === dataRequest.current) setInsights(value);
+        })
+        .catch((e) => {
+          if (request === dataRequest.current) setError(e.message);
+        });
+    }
+    if (screen === "Compliance") {
+      setAudit([]);
       api<Audit[]>("audit")
-        .then(setAudit)
-        .catch((e) => setError(e.message));
+        .then((value) => {
+          if (request === dataRequest.current) setAudit(value);
+        })
+        .catch((e) => {
+          if (request === dataRequest.current) setError(e.message);
+        });
+    }
+    return () => {
+      if (request === dataRequest.current) dataRequest.current++;
+    };
   }, [screen, workspace]);
   async function mutate(
     path: string,
@@ -258,6 +287,29 @@ export default function Page() {
             ? "updated"
             : "created";
       setNotice(success || `Successfully ${verb}. Your changes are saved.`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function viewAs(userId: string) {
+    dataRequest.current++;
+    setBusy(true);
+    setError("");
+    setModal(null);
+    setSelected(null);
+    setInsights(null);
+    setAudit([]);
+    setShowArchived(false);
+    setTeamPage(null);
+    try {
+      await api("demo/view-as", "POST", { userId });
+      await refresh();
+      setNotice(
+        "Now viewing as " +
+          (demo.find((p) => p.id === userId)?.name || "selected persona"),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -580,17 +632,50 @@ export default function Page() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <span className="demo-tag">DEMO WORKSPACE</span>
+          {workspace.demoMode && (
+            <label className="persona-control">
+              View as
+              <select
+                aria-label="View as"
+                value={user.id}
+                disabled={busy}
+                onChange={(e) => viewAs(e.target.value)}
+              >
+                {demo
+                  .filter((p) =>
+                    [
+                      "maya",
+                      "alex",
+                      "jordan",
+                      "sam",
+                      "priya",
+                      "leo",
+                      "nina",
+                      "owen",
+                      "imani",
+                      "ella",
+                      "root",
+                    ].includes(p.id),
+                  )
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ·{" "}
+                      {p.role === "root" ? "Demo administrator" : p.role}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
           <span className="avatar small">{initials(user.name)}</span>
         </header>
         <main className="content">
           <div className="page-heading">
             <div>
-              <div className="eyebrow">
-                {screen === "Home"
-                  ? `WELCOME BACK, ${user.name.split(" ")[0].toUpperCase()}`
-                  : `NORTHSTAR / ${screen.toUpperCase()}`}
-              </div>
+              {screen === "Home" && (
+                <div className="eyebrow">
+                  WELCOME BACK, {user.name.split(" ")[0].toUpperCase()}
+                </div>
+              )}
               <h1>{intro[screen][0]}</h1>
               <p>{intro[screen][1]}</p>
             </div>
@@ -623,7 +708,12 @@ export default function Page() {
             ) : null}
           </div>
           <div className="module-tools">
-            {!["Insights", "Compliance"].includes(screen) && (
+            {((isRoot && !["Insights", "Compliance"].includes(screen)) ||
+              (screen === "Budget" && isFinance) ||
+              (["Goals", "Allocation"].includes(screen) &&
+                user.role !== "employee") ||
+              (screen === "Home" &&
+                records.some((r) => r.owner_id === user.id))) && (
               <label>
                 <input
                   type="checkbox"
@@ -858,7 +948,12 @@ export default function Page() {
             <>
               <div className="section-title">
                 <span>
-                  {people.filter((p) => showArchived || !p.archived_at).length}{" "}
+                  {
+                    people.filter(
+                      (p) =>
+                        p.role !== "root" && (showArchived || !p.archived_at),
+                    ).length
+                  }{" "}
                   colleagues · Expertise is self-listed
                 </span>
                 <button
@@ -872,6 +967,7 @@ export default function Page() {
                 {people
                   .filter(
                     (p) =>
+                      p.role !== "root" &&
                       (showArchived || !p.archived_at) &&
                       matches(`${p.name} ${p.skills.join(" ")} ${p.title}`),
                   )
@@ -940,7 +1036,7 @@ export default function Page() {
               </div>
             </>
           )}
-          {screen === "Organization" && (
+          {screen === "Organization" && !teamPage && (
             <div className="cards-grid two">
               {teams
                 .filter(
@@ -953,7 +1049,14 @@ export default function Page() {
                     <span className="team-symbol">
                       <Network size={25} />
                     </span>
-                    <h2>{t.name}</h2>
+                    <h2>
+                      <button
+                        className="text-button"
+                        onClick={() => setTeamPage(t.id)}
+                      >
+                        {t.name} <ArrowRight size={18} />
+                      </button>
+                    </h2>
                     {t.archived_at && (
                       <span className="chip">Archived team</span>
                     )}
@@ -988,7 +1091,12 @@ export default function Page() {
                     <p>{t.mission}</p>
                     <div className="team-people">
                       {people
-                        .filter((p) => p.team_id === t.id && !p.archived_at)
+                        .filter(
+                          (p) =>
+                            p.team_id === t.id &&
+                            !p.archived_at &&
+                            p.role !== "root",
+                        )
                         .map((p) => (
                           <div key={p.id}>
                             <span className="avatar small">
@@ -1053,6 +1161,124 @@ export default function Page() {
                 ))}
             </div>
           )}
+          {screen === "Organization" &&
+            teamPage &&
+            (() => {
+              const t = teams.find((t) => t.id === teamPage);
+              if (!t) return null;
+              const members = people.filter(
+                (p) =>
+                  p.team_id === t.id && !p.archived_at && p.role !== "root",
+              );
+              const visible = records.filter(
+                (r) => r.team_id === t.id && !r.archived_at,
+              );
+              return (
+                <section className="team-page">
+                  <button
+                    className="secondary"
+                    onClick={() => setTeamPage(null)}
+                  >
+                    ← All teams
+                  </button>
+                  <h2>{t.name}</h2>
+                  <p>{t.mission}</p>
+                  <div className="summary-row">
+                    <div className="card">
+                      <strong>{members.length}</strong>
+                      <p>Team members</p>
+                    </div>
+                    <div className="card">
+                      <strong>
+                        {workspace.engagement.find((e) => e.id === t.id)
+                          ?.followers || 0}
+                      </strong>
+                      <p>Voluntary followers</p>
+                    </div>
+                    <div className="card">
+                      <strong>
+                        {visible.filter((r) => r.kind === "post").length}
+                      </strong>
+                      <p>Updates visible to you</p>
+                    </div>
+                  </div>
+                  <h3>Team structure</h3>
+                  <div className="card">
+                    {members.map((p) => (
+                      <p key={p.id}>
+                        <strong>{p.name}</strong> · {p.title}
+                        {p.role === "lead" ? " · Team lead" : ""}
+                      </p>
+                    ))}
+                  </div>
+                  <h3>Posts & recognition</h3>
+                  <div className="cards-grid two">
+                    {visible
+                      .filter((r) => ["post", "recognition"].includes(r.kind))
+                      .map((r) => (
+                        <article className="card" key={r.id}>
+                          <h3>{r.title}</h3>
+                          <p>{r.body}</p>
+                          <small>
+                            {person(r.owner_id)?.name} · {date(r.updated_at)}
+                          </small>
+                          {source(r)}
+                        </article>
+                      ))}
+                  </div>
+                  <h3>Shared work</h3>
+                  <div className="cards-grid two">
+                    {visible
+                      .filter((r) => ["goal", "allocation"].includes(r.kind))
+                      .map((r) => (
+                        <article className="card" key={r.id}>
+                          <span className="chip">
+                            {r.kind === "goal" ? "Goal" : "Opportunity"}
+                          </span>
+                          <h3>{r.title}</h3>
+                          <p>{r.body}</p>
+                          {r.kind === "goal" ? (
+                            <p>
+                              {r.data.progress}% · {r.data.completed} of{" "}
+                              {r.data.total} {r.data.unit}
+                            </p>
+                          ) : (
+                            <p>
+                              Typical contribution: {r.data.hours} hours/week ·
+                              opt in from Allocation
+                            </p>
+                          )}
+                          {source(r)}
+                        </article>
+                      ))}
+                  </div>
+                  <h3>Engagement</h3>
+                  <p>
+                    Following is voluntary and curates your feed. Interest in
+                    opportunities is visible to their owner, never a performance
+                    ranking. Private posts remain limited to your role and team.
+                  </p>
+                  <button
+                    className="secondary"
+                    disabled={busy || !!t.archived_at}
+                    onClick={() =>
+                      mutate(
+                        `teams/${t.id}/follow`,
+                        "POST",
+                        undefined,
+                        workspace.following.includes(t.id)
+                          ? "Team unfollowed successfully."
+                          : "Team followed successfully.",
+                      )
+                    }
+                  >
+                    {workspace.following.includes(t.id)
+                      ? "Following · click to unfollow"
+                      : "Follow team"}
+                  </button>
+                </section>
+              );
+            })()}
           {screen === "Goals" && (
             <div className="cards-grid two">
               {filtered("goal").map((r) => (
@@ -1068,7 +1294,11 @@ export default function Page() {
                       {r.data.progress}
                       <small>%</small>
                     </strong>
-                    <span>owner-reported progress</span>
+                    <span>
+                      {r.data.total
+                        ? `${r.data.completed} of ${r.data.total} ${r.data.unit} complete`
+                        : "Owner estimate · measurement not recorded"}
+                    </span>
                   </div>
                   <div className="progress">
                     <i style={{ width: `${r.data.progress}%` }} />
@@ -1076,6 +1306,15 @@ export default function Page() {
                   <div className="evidence">
                     <span className="eyebrow">LATEST EVIDENCE</span>
                     <p>{r.data.evidence}</p>
+                    <p>
+                      {r.data.total
+                        ? `${r.data.completed} ÷ ${r.data.total} × 100 = ${r.data.progress}%`
+                        : "No numerator or denominator supplied."}{" "}
+                      · Evidence dated{" "}
+                      {r.data.evidenceDate
+                        ? date(String(r.data.evidenceDate) + "T12:00:00Z")
+                        : "not recorded"}
+                    </p>
                     <small>
                       Updated {date(r.updated_at)} · {person(r.owner_id)?.name}
                     </small>
@@ -1125,8 +1364,29 @@ export default function Page() {
                       </div>
                     </div>
                     <p className="muted">
-                      Suggested contribution: {r.data.hours} hours / week
+                      Typical contribution: {r.data.hours} hours / week
                     </p>
+                    {(r.owner_id === user.id || isRoot) && (
+                      <details>
+                        <summary>
+                          Interested colleagues (
+                          {
+                            workspace.interests.filter(
+                              (i) => i.record_id === r.id,
+                            ).length
+                          }
+                          )
+                        </summary>
+                        {workspace.interests
+                          .filter((i) => i.record_id === r.id)
+                          .map((i) => (
+                            <p key={i.id}>{i.name}</p>
+                          ))}
+                        {!workspace.interests.some(
+                          (i) => i.record_id === r.id,
+                        ) && <p>No expressions of interest yet.</p>}
+                      </details>
+                    )}
                     <div className="card-actions">
                       <button
                         className={
@@ -1149,7 +1409,7 @@ export default function Page() {
                         {workspace.joined.includes(r.id)
                           ? "Withdraw interest"
                           : "I’m interested"}
-                        <ArrowUpRight size={15} />
+                        <Plus size={15} />
                       </button>
                       {source(r)}
                     </div>
@@ -1164,8 +1424,9 @@ export default function Page() {
                 <ShieldCheck size={35} />
                 <h2>Finance access required</h2>
                 <p>
-                  Budget records are restricted to the finance admin. Sign in as
-                  Jordan to review plans, actuals, and source details.
+                  Budget records are restricted to finance and root
+                  administrators. Use “View as” in this demo to explore Jordan’s
+                  finance view.
                 </p>
                 <small>
                   This restriction is enforced by the API, including search and
@@ -1266,8 +1527,11 @@ export default function Page() {
                           <h2>{a.title}</h2>
                           <strong className="insight-number">{a.value}</strong>
                           <p>{a.explanation}</p>
+                          <p className="muted">{a.coverage}</p>
                           <small>As of {date(insights.asOf)}</small>
-                          <div className="sources">
+                          <details className="sources">
+                            <summary>Evidence behind this answer</summary>
+                            <p>{a.arithmetic}</p>
                             <span className="eyebrow">
                               EVIDENCE · {a.sources.length} RECORDS
                             </span>
@@ -1283,7 +1547,7 @@ export default function Page() {
                                 <ExternalLink size={14} />
                               </button>
                             ))}
-                          </div>
+                          </details>
                         </article>
                       ))}
                   </div>
@@ -1306,9 +1570,63 @@ export default function Page() {
                 </span>
               </div>
               <div className="card audit-card">
+                <h2>Access review</h2>
+                <p>
+                  Current policy by role. Team-private records remain
+                  team-scoped, including for Finance; Root can review all teams.
+                </p>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Role</th>
+                        <th>Visible records</th>
+                        <th>Can change</th>
+                        <th>Audit access</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        [
+                          "Employee",
+                          "Company + own team",
+                          "Own posts, recognition and expertise; voluntary interest/follows",
+                          "Own actions",
+                        ],
+                        [
+                          "Team lead",
+                          "Company + own team",
+                          "Employee actions + own team goals/opportunities",
+                          "Own actions + team non-financial actions",
+                        ],
+                        [
+                          "Finance",
+                          "Company + own team + budgets",
+                          "Visible goals/opportunities and budgets; own posts/expertise",
+                          "All activity",
+                        ],
+                        [
+                          "Root administrator",
+                          "All teams and budgets",
+                          "All records, people and teams",
+                          "All activity; immutable",
+                        ],
+                      ].map((row) => (
+                        <tr key={row[0]}>
+                          {row.map((cell) => (
+                            <td key={cell}>{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="card audit-card">
                 <h2>Activity trail</h2>
                 <p>
-                  Latest 500 audit entries, filtered to your permissions. UTC
+                  Latest 500 audit entries, filtered to your permissions. Seeded
+                  demonstration history is marked in the change details. UTC
                   timestamps are shown in your browser’s timezone.
                 </p>
                 <div className="table-scroll">
@@ -1332,7 +1650,7 @@ export default function Page() {
                             </td>
                             <td>{new Date(a.created_at).toLocaleString()}</td>
                             <td>
-                              <code>{a.record_id}</code>
+                              <span>{a.record_label}</span>
                               {Object.keys(a.detail as object).length > 0 && (
                                 <details>
                                   <summary>Before / after</summary>

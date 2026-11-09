@@ -1476,3 +1476,51 @@ dd {
   background: #eef5ef;
   color: #224d38;
 }
+
+/* Keep transient feedback away from page actions. */
+.content > .notice {
+  top: auto;
+  bottom: 24px;
+  right: 24px;
+  max-width: min(440px, calc(100vw - 32px));
+}
+.persona-control {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.persona-control select {
+  max-width: 230px;
+  padding: 8px;
+  border: 1px solid #d5ddd7;
+  border-radius: 8px;
+  background: white;
+  color: #234c3c;
+}
+.team-card h2 button {
+  font-size: inherit;
+  text-align: left;
+}
+.sources summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.sources p {
+  line-height: 1.6;
+}
+.audit-card + .audit-card {
+  margin-top: 24px;
+}
+@media (max-width: 700px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    gap: 12px;
+    padding: 16px;
+  }
+  .persona-control {
+    width: 100%;
+  }
+}
