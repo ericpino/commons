@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, FormEvent } from "react";
 import { reconcileInterest } from "../components/allocation-interest";
 import AllocationCard, { InterestState } from "../components/allocation-card";
-import PeopleDirectory from "../components/people-directory";
+import PeopleDirectory, { PeopleState } from "../components/people-directory";
 import SkillPicker from "../components/skill-picker";
 import AuditDetails from "../components/audit-details";
 import RecordFields from "../components/record-fields";
@@ -139,7 +139,10 @@ async function api<T = unknown>(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Something went wrong");
+  if (!res.ok)
+    throw Object.assign(new Error(data.message || "Something went wrong"), {
+      status: res.status,
+    });
   return data;
 }
 const initials = (name: string) =>
@@ -158,6 +161,8 @@ export default function Page() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
     [demo, setDemo] = useState<Person[]>([]),
     [teamPage, setTeamPage] = useState<string | null>(null),
+    [peopleState, setPeopleState] = useState<PeopleState>("loading"),
+    [peopleRetry, setPeopleRetry] = useState(0),
     [screen, setScreen] = useState("Home"),
     [query, setQuery] = useState(""),
     [error, setError] = useState(""),
@@ -244,6 +249,8 @@ export default function Page() {
     return w;
   }
   useEffect(() => {
+    if (document.defaultView?.location.hash.startsWith("#people"))
+      setScreen("People");
     Promise.all([
       api<Person[]>("demo-users").then(setDemo),
       refresh().catch(() => null),
@@ -285,6 +292,29 @@ export default function Page() {
       if (request === dataRequest.current) dataRequest.current++;
     };
   }, [screen, workspace, auditRetry]);
+  useEffect(() => {
+    if (screen !== "People" || !workspace?.user.id) return;
+    const persona = workspace.user.id;
+    let active = true;
+    setPeopleState("loading");
+    api<Workspace>("workspace?archived=true")
+      .then((current) => {
+        if (!active) return;
+        if (current.user.id !== persona) {
+          setPeopleState("denied");
+          return;
+        }
+        setWorkspace(current);
+        setPeopleState("ready");
+      })
+      .catch((e) => {
+        if (active)
+          setPeopleState([401, 403].includes(e.status) ? "denied" : "error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [screen, workspace?.user.id, peopleRetry]);
   async function mutate(
     path: string,
     method: string,
@@ -443,10 +473,7 @@ export default function Page() {
       return mutate(
         entity ? `people/${entity.id}` : "people",
         entity ? "PATCH" : "POST",
-        {
-          ...f,
-          skills: JSON.parse(String(f.skills || "[]")),
-        },
+        { name: f.name, title: f.title, role: f.role, teamId: f.teamId },
         `Person ${entity ? "updated" : "created"} successfully.`,
       );
     if (modal === "team")
@@ -462,11 +489,16 @@ export default function Page() {
       });
     if (modal === "edit" && selected)
       return mutate(`records/${selected.id}`, "PATCH", f);
-    return mutate("records", "POST", {
-      ...f,
-      kind: modal,
-      teamId: f.teamId || workspace?.user.team_id,
-    });
+    return mutate(
+      "records",
+      "POST",
+      {
+        ...f,
+        kind: modal,
+        teamId: f.teamId || workspace?.user.team_id,
+      },
+      modal === "recognition" ? "Recognition sent." : undefined,
+    );
   }
   if (loading)
     return (
@@ -1051,9 +1083,9 @@ export default function Page() {
               people={people}
               teams={teams}
               user={user}
-              state="ready"
+              state={peopleState}
               busy={busy}
-              onRetry={() => void refresh()}
+              onRetry={() => setPeopleRetry((n) => n + 1)}
               onExpertise={() => setModal("skills")}
               onCreate={() => {
                 setEntity(null);
@@ -1070,6 +1102,155 @@ export default function Page() {
                 setRecipient(p.id);
                 setModal("recognition");
               }}
+              renderProfileWork={(p) => {
+                const work = workspace.records.filter(
+                  (r) =>
+                    !r.archived_at &&
+                    r.kind !== "recognition" &&
+                    r.owner_id === p.id,
+                );
+                const recognition = workspace.records.filter(
+                  (r) =>
+                    !r.archived_at &&
+                    r.kind === "recognition" &&
+                    (r.data.recipient === p.id || r.owner_id === p.id),
+                );
+                return (
+                  <div className="people-profile-work">
+                    <section>
+                      <h3>Shared work</h3>
+                      {work.length ? (
+                        work.map((r) => (
+                          <article key={r.id}>
+                            <h4>{r.title}</h4>
+                            <p>{r.body}</p>
+                            <small>As of {date(r.updated_at)}</small>
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setSelected(r);
+                                setModal("source");
+                              }}
+                            >
+                              View source <ExternalLink size={14} />
+                            </button>
+                          </article>
+                        ))
+                      ) : (
+                        <p>No shared work is available in your current view.</p>
+                      )}
+                    </section>
+                    <section>
+                      <h3>Recognition</h3>
+                      {recognition.length ? (
+                        recognition.map((r) => (
+                          <article key={r.id}>
+                            <h4>{r.title}</h4>
+                            <p>{r.body}</p>
+                            <small>As of {date(r.updated_at)}</small>
+                            <p>
+                              From {person(r.owner_id)?.name || "Colleague"} to{" "}
+                              {person(String(r.data.recipient))?.name ||
+                                "Colleague"}{" "}
+                              · {date(r.created_at)}
+                            </p>
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setSelected(r);
+                                setModal("source");
+                              }}
+                            >
+                              View source <ExternalLink size={14} />
+                            </button>
+                          </article>
+                        ))
+                      ) : (
+                        <p>No recognition is available in your current view.</p>
+                      )}
+                    </section>
+                  </div>
+                );
+              }}
+              opportunities={
+                workspace.records.some(
+                  (r) => r.kind === "allocation" && !r.archived_at,
+                ) && (
+                  <section className="people-opportunities">
+                    <h2>Communities and opportunities to join</h2>
+                    <p>
+                      Explore opportunities shared with you. Interest does not
+                      commit your time.
+                    </p>
+                    <ul>
+                      {workspace.records
+                        .filter(
+                          (r) => r.kind === "allocation" && !r.archived_at,
+                        )
+                        .map((r) => (
+                          <li key={r.id}>
+                            <div>
+                              <button
+                                className="text-button"
+                                onClick={() => {
+                                  setSelected(r);
+                                  setModal("source");
+                                }}
+                              >
+                                {r.title}
+                              </button>
+                              <p>{team(r.team_id)}</p>
+                            </div>
+                            <div>
+                              {workspace.joined.includes(r.id) && (
+                                <span>
+                                  <Check size={16} aria-hidden="true" />{" "}
+                                  Interested
+                                </span>
+                              )}
+                              <button
+                                className="secondary"
+                                disabled={
+                                  busy ||
+                                  interestStates[r.id]?.status === "error"
+                                }
+                                onClick={() =>
+                                  void changeInterest(
+                                    r.id,
+                                    !workspace.joined.includes(r.id),
+                                  )
+                                }
+                              >
+                                {interestStates[r.id]?.status === "saving"
+                                  ? "Saving..."
+                                  : workspace.joined.includes(r.id)
+                                    ? "Withdraw interest"
+                                    : "I'm interested"}
+                              </button>
+                              {interestStates[r.id]?.status === "error" && (
+                                <div role="alert">
+                                  <p>{interestStates[r.id]?.message}</p>
+                                  <button
+                                    className="text-button"
+                                    onClick={() =>
+                                      void changeInterest(
+                                        r.id,
+                                        interestStates[r.id]?.desired ??
+                                          !workspace.joined.includes(r.id),
+                                      )
+                                    }
+                                  >
+                                    Retry
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                    </ul>
+                  </section>
+                )
+              }
             />
           )}
           {screen === "Organization" && !teamPage && (
@@ -1858,13 +2039,10 @@ export default function Page() {
                           ))}
                       </select>
                     </label>
-                    <SkillPicker
-                      initialSkills={(entity as Person)?.skills || []}
-                    />
                     <p>
-                      Root can administer all profiles. Skills are descriptions,
-                      never proficiency ratings. Role or team changes revoke the
-                      affected person’s existing sessions.
+                      Skills are edited by each colleague through “Edit my
+                      expertise”. Role or team changes revoke the affected
+                      person’s existing sessions.
                     </p>
                   </>
                 ) : modal === "team" ? (

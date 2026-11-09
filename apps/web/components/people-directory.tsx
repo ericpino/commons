@@ -9,7 +9,7 @@ export type DirectoryPerson = {
   skills: string[];
   archived_at?: string | null;
 };
-type Team = { id: string; name: string };
+type Team = { id: string; name: string; archived_at?: string | null };
 export type DirectoryFilters = {
   query: string;
   team: string;
@@ -50,6 +50,7 @@ export function PersonCard({
   team,
   self,
   canAdmin,
+  canRestore = true,
   busy,
   onSkill,
   onRecognize,
@@ -60,6 +61,7 @@ export function PersonCard({
   team: string;
   self: boolean;
   canAdmin: boolean;
+  canRestore?: boolean;
   busy: boolean;
   onSkill: (skill: string) => void;
   onRecognize: () => void;
@@ -105,9 +107,15 @@ export function PersonCard({
                   Edit person
                 </button>
               )}
-              <button onClick={onArchive} disabled={busy || self}>
+              <button
+                onClick={onArchive}
+                disabled={busy || self || (!!p.archived_at && !canRestore)}
+              >
                 {p.archived_at ? "Restore" : "Archive"}
               </button>
+              {p.archived_at && !canRestore && (
+                <p>Restore the colleague’s team first.</p>
+              )}
             </div>
           </details>
         )}
@@ -484,6 +492,7 @@ export default function PeopleDirectory({
             }
             self={p.id === user.id}
             canAdmin={canAdmin}
+            canRestore={teams.some((t) => t.id === p.team_id && !t.archived_at)}
             busy={busy}
             onSkill={(skill) => setFilters({ ...filters, skill })}
             onRecognize={() => onRecognize(p)}

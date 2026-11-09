@@ -113,6 +113,10 @@ GitHub Actions runs lint, unit tests, production builds and PostgreSQL integrati
 
 ## Assumptions and limits
 
+**People UI assumptions:** directory search and team/skill filters operate only on the returned workspace data, in alphabetical order. The returned Root role determines person administration controls, matching the existing server guard; no separate capability flags exist. All three checked roles receive the same directory scope, so no misleading role-specific scope chip is shown. The existing exclusion of the fictional Root demo account is presentation only, not authorization. Profiles use hash links and existing identity, self-listed skills, shared work and recognition records; no biography fields were invented. Only existing opportunities are shown; no communities API exists. Dates use the browser timezone. Optional team grouping is omitted.
+
+**People limitation:** the frontend only edits skills through the current user's expertise form. The existing Root person-write API still accepts other people's skills; owner-only enforcement is therefore not satisfied server-side and needs a separately approved backend fix. This frontend change does not claim to fix it. See [People UX validation](docs/PEOPLE_UX_VALIDATION.md).
+
 **Allocation UI assumptions:** “role” in the colleague list means the returned job title (falling back to the returned permission role). Colleague details are joined only to identities in the returned interest list, sorted by name; the directory never supplies additional interest identities. The existing API exposes a full list only for an active opportunity’s creator or Root; otherwise an empty response is described as permission-limited, not zero interest. Archived lists are treated as unavailable. Dates use the browser timezone. Long descriptions are visually truncated to one line; View source retains the full text.
 
 Allocation omits Edit/Archive controls because records do not expose a server-provided edit capability. Interest retries first read the current joined state before using the existing toggle endpoint; this avoids blindly repeating an ambiguous request but cannot guarantee idempotency across concurrent clients. No optimistic mutation is used. Colleague refresh shows loading/error/retry states on the existing workspace request.
@@ -129,7 +133,7 @@ Matt Pocock’s published engineering and productivity skills are installed loca
 
 ### Shared expertise catalog
 
-`GET /api/skills` through the frontend (`GET /skills` on NestJS) requires an authenticated session and returns `{ skills: [{ id, name }] }`, sorted by name. The expertise and Root person forms fetch this catalog and filter suggestions locally, with keyboard selection and removable skill chips. Only selected suggestions are submitted.
+`GET /api/skills` through the frontend (`GET /skills` on NestJS) requires an authenticated session and returns `{ skills: [{ id, name }] }`, sorted by name. The own-expertise form fetches this catalog and filter suggestions locally, with keyboard selection and removable skill chips. Only selected suggestions are submitted.
 
 The PostgreSQL `skills` table supplies canonical names and enforces case-insensitive uniqueness. Existing expertise is imported without discarding names; casing and duplicate entries are normalized. Both profile and Root person writes validate against the catalog, accept case-insensitive matches, reject unknown values, and store canonical names. A database trigger also rejects unknown names and more than 12 selections on user writes. The existing `users.skills` array remains compatible with directory search and audit history. New catalog entries are managed through database migrations for this pilot; no free-text creation is exposed in the picker.
 

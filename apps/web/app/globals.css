@@ -1974,3 +1974,55 @@ dd {
     animation: none !important;
   }
 }
+.people-profile-work {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.people-profile-work article {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+.people-profile-work h4 {
+  margin: 8px 0;
+}
+.people-opportunities {
+  margin-top: 36px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.people-opportunities ul {
+  list-style: none;
+  padding: 0;
+}
+.people-opportunities li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding: 16px 0;
+}
+.people-opportunities li p {
+  margin: 4px 0;
+}
+.people-opportunities li > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.people-opportunities li span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+@media (max-width: 600px) {
+  .people-profile-work {
+    grid-template-columns: 1fr;
+  }
+  .people-opportunities li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
